@@ -47,6 +47,7 @@ data/processed/
 # Environment variables
 .env
 .flaskenv
+.streamlit/
 
 # OS files
 .DS_Store

@@ -8,27 +8,20 @@ Este projeto visa a análise exploratória de dados (EDA) e a modelagem do perfi
 - **Correlação Socioeconômica**: Relacionar o IDH municipal com as taxas de inscrição.
 - **Perfilamento**: Definir o perfil demográfico e geográfico do público-alvo.
 
-## 🛠️ Tecnologias e Ambiente
-- **Firebase Firestore**: Armazenamento de dados transacionais.
-- **Firebase Storage**: Repositório para modelos treinados (Limite de 5GB).
-- **Python**: Linguagem principal para análise e modelagem.
-- **Pandas/Scikit-learn/Seaborn**: Ecossistema de Ciência de Dados.
+## 🚀 Pipeline & Deploy
+1. **Google Colab**: Use para treinamento de modelos pesados e EDA inicial.
+2. **Streamlit**: Dashboard interativo rodando em `app.py`.
+3. **Streamlit Cloud**: Hospedagem gratuita conectada ao GitHub.
+    - O arquivo `service-account.json` deve ser configurado no **Streamlit Secrets** (não comitar o JSON).
 
-## 📂 Estrutura do Projeto
-- `data/raw/`: Relatórios CSV/Excel e dados do Open Data.
-- `data/processed/`: Dados limpos e preparados para modelagem.
-- `notebooks/`: Análises experimentais e protótipos em Jupyter.
-- `src/`: Scripts modulares para automação de ETL e treinamento de modelos.
-- `config/`: Configurações de acesso (credenciais do Firebase).
-
-## 🚀 Setup Inicial
-1.  Obtenha o arquivo `service-account.json` no console do Firebase (Configurações do Projeto > Contas de Serviço).
-2.  Coloque o arquivo na pasta `config/` (ignorado pelo Git por segurança).
-3.  Crie um ambiente virtual: `python -m venv venv`
-4.  Instale as dependências: `pip install -r requirements.txt`
+## 📊 Dashboard Interativo
+Execute localmente com:
+```bash
+streamlit run app.py
+```
 
 ## 📊 Premissas de Ingestão
-Para facilitar o "Join" (cruzamento) de dados, os campos no Firestore devem coincidir exatamente com os nomes das colunas dos relatórios externos.
+Para facilitar o "Join" (cruzamento) de dados, os campos no Firestore devem coincidir exatamente com os nomes das colunas dos relatórios externos (Ver `data/raw/TEMPLATE_COLUNAS.csv`).
 
 ---
-**Status atual**: Ambiente de desenvolvimento preparado.
+**Status atual**: Ambiente Web/Dashboard preparado.

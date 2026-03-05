@@ -16,8 +16,12 @@ plotly
 scikit-learn
 scipy
 
+# Dashboard & Deployment
+streamlit
+streamlit-option-menu
+
 # Development & EDA
 ipykernel
 jupyter
 python-dotenv
- requests
+requests
