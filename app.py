@@ -12,21 +12,27 @@ st.set_page_config(page_title="Gestão de Inscritos - Dashboard", layout="wide")
 # --- Autenticação/Firebase ---
 def connect_db():
     try:
-        # Tenta verificar se o arquivo existe antes de inicializar para evitar erro de inicialização repetida
+        # Prioriza inicialização via Secrets (Streamlit Cloud)
         if "firebase_secrets" in st.secrets:
-            key_dict = json.loads(st.secrets["firebase_secrets"])
+            secrets_data = st.secrets["firebase_secrets"]
+            
+            # Se for uma string (JSON), transforma em dict
+            if isinstance(secrets_data, str):
+                key_dict = json.loads(secrets_data)
+            else:
+                # Se for um objeto TOML/Dict do Streamlit
+                key_dict = dict(secrets_data)
+                
             from src.firebase_client import initialize_firebase_from_dict
             initialize_firebase_from_dict(key_dict)
         else:
+            # Desenvolvimento Local
             if os.path.exists('config/service-account.json'):
                 initialize_firebase('config/service-account.json')
             else:
-                return None # Aguardando arquivo
+                return None
         
-        client = get_firestore_client()
-        # Teste rápido se a API está ativa (Pega 1 doc)
-        # client.collection('inscritos').limit(1).get() # Isso pode lançar o erro 403 se desativada
-        return client
+        return get_firestore_client()
     except Exception as e:
         if "403" in str(e) or "not be used" in str(e).lower():
             st.warning("⚠️ **Ação Necessária**: A API do Firestore precisa ser ativada no seu console Google Cloud.")
