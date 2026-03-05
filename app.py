@@ -67,10 +67,12 @@ def fetch_real_data(db):
             docs = db.collection('inscritos').stream()
             data_list = [doc.to_dict() for doc in docs]
             if data_list:
-                df = pd.DataFrame(data_list)
+                # Normaliza o JSON para colunas planas (ex: socioeconomico.renda_familiar)
+                df = pd.json_normalize(data_list)
+                
                 # Garante colunas mínimas para o mapa se não existirem
                 if 'lat' not in df.columns:
-                    df['lat'] = -23.5505 # Default para não quebrar
+                    df['lat'] = -23.5505
                 if 'lon' not in df.columns:
                     df['lon'] = -46.6333
                 return df
@@ -91,12 +93,20 @@ if selected == "Dashboard":
     else:
         st.info("💡 Exibindo Dados de Amostra (Conecte o Firestore para ver dados reais)")
 
+    # Mapeamento Dinâmico de Colunas
+    renda_col = 'renda' if 'renda' in df_display.columns else 'socioeconomico.renda_familiar'
+    idade_col = 'idade' if 'idade' in df_display.columns else 'idade' # assume idade se existir
+    
     # Exemplo de Métricas Dinâmicas
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Inscritos", len(df_display))
     col2.metric("Concluídos", len(df_display[df_display['status'] == 'concluido']))
-    col3.metric("Idade Média", f"{df_display['idade'].mean():.1f} anos")
-    col4.metric("Renda Média", f"R$ {df_display['renda'].mean():.2f}")
+    
+    if idade_col in df_display.columns:
+        col3.metric("Idade Média", f"{df_display[idade_col].mean():.1f} anos")
+    
+    if renda_col in df_display.columns:
+        col4.metric("Renda Média", f"R$ {df_display[renda_col].mean():.2f}")
 
     st.markdown("---")
     
@@ -108,13 +118,16 @@ if selected == "Dashboard":
         st.plotly_chart(fig_status, width="stretch")
         
     with c2:
-        df_bairro = df_display.groupby("bairro").size().reset_index(name='count') if 'bairro' in df_display.columns else df_display.groupby("bairro_municipal").size().reset_index(name='count')
-        b_col = 'bairro' if 'bairro' in df_display.columns else 'bairro_municipal'
+        # Tenta mapear bairro ou bairro_municipal
+        b_col = 'bairro' if 'bairro' in df_display.columns else ('bairro_municipal' if 'bairro_municipal' in df_display.columns else None)
         
-        fig_bairro = px.bar(df_bairro, 
-                           x=b_col, y="count", title="Inscritos por Bairro",
-                           labels={'count': 'Qtd', b_col: 'Bairro'})
-        st.plotly_chart(fig_bairro, width="stretch")
+        if b_col:
+            df_b_plot = df_display.groupby(b_col).size().reset_index(name='count')
+            fig_bairro = px.bar(df_b_plot, x=b_col, y="count", title="Inscritos por Bairro",
+                               labels={'count': 'Qtd', b_col: 'Bairro'})
+            st.plotly_chart(fig_bairro, width="stretch")
+        else:
+            st.warning("Campo de Bairro não encontrado nos dados.")
 
     st.subheader("📋 Lista Recente de Inscritos")
     st.dataframe(df_display, width="stretch")
@@ -144,7 +157,9 @@ elif selected == "Mapa por Bairro":
     st.map(df_display, latitude="lat", longitude="lon", size=20)
     
     st.subheader("Densidade por Bairro")
-    st.write(df_sample['bairro'].value_counts())
+    b_col_map = 'bairro' if 'bairro' in df_display.columns else ('bairro_municipal' if 'bairro_municipal' in df_display.columns else None)
+    if b_col_map:
+        st.write(df_display[b_col_map].value_counts())
 
 elif selected == "Configurações":
     st.title("⚙️ Configurações do Sistema")
