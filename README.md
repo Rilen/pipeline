@@ -87,4 +87,3 @@ Para hospedar o dashboard online:
 2. No Streamlit Cloud, adicione o conteúdo do seu `service-account.json` em **Secrets** com a chave `firebase_secrets`.
 
 ---
-**Desenvolvido com Antigravity AI** 🌐
