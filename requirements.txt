@@ -18,8 +18,9 @@ scikit-learn
 scipy
 
 # Dashboard & Deployment
-streamlit
+streamlit>=1.40.0
 streamlit-option-menu
+protobuf<5.0.0
 
 # Development & EDA
 ipykernel
