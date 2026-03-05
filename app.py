@@ -54,34 +54,64 @@ df_sample = pd.DataFrame([
     {"id_inscricao": "INC8823", "nome_aluno": "Carlos Souza", "idade": 18, "bairro": "Centro", "status": "concluido", "renda": 980.00, "lat": -23.5510, "lon": -46.6340}
 ])
 
+# --- Funções de Dados ---
+def fetch_real_data(db):
+    if db:
+        try:
+            docs = db.collection('inscritos').stream()
+            data_list = [doc.to_dict() for doc in docs]
+            if data_list:
+                df = pd.DataFrame(data_list)
+                # Garante colunas mínimas para o mapa se não existirem
+                if 'lat' not in df.columns:
+                    df['lat'] = -23.5505 # Default para não quebrar
+                if 'lon' not in df.columns:
+                    df['lon'] = -46.6333
+                return df
+        except Exception:
+            pass
+    return None
+
+# Busca dados reais ou usa amostra
+df_real = fetch_real_data(db)
+df_display = df_real if df_real is not None else df_sample
+
 # --- Conteúdo ---
 if selected == "Dashboard":
     st.title("📊 Painel Geral de Inscritos")
     
+    if df_real is not None:
+        st.success(f"📈 Exibindo {len(df_real)} registros reais do Firestore!")
+    else:
+        st.info("💡 Exibindo Dados de Amostra (Conecte o Firestore para ver dados reais)")
+
     # Exemplo de Métricas Dinâmicas
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Inscritos", len(df_sample))
-    col2.metric("Concluídos", len(df_sample[df_sample['status'] == 'concluido']))
-    col3.metric("Idade Média", f"{df_sample['idade'].mean():.1f} anos")
-    col4.metric("Renda Média", f"R$ {df_sample['renda'].mean():.2f}")
+    col1.metric("Total Inscritos", len(df_display))
+    col2.metric("Concluídos", len(df_display[df_display['status'] == 'concluido']))
+    col3.metric("Idade Média", f"{df_display['idade'].mean():.1f} anos")
+    col4.metric("Renda Média", f"R$ {df_display['renda'].mean():.2f}")
 
     st.markdown("---")
     
     c1, c2 = st.columns(2)
     
     with c1:
-        fig_status = px.pie(df_sample, names="status", title="Status das Inscrições", 
+        fig_status = px.pie(df_display, names="status", title="Status das Inscrições", 
                            color_discrete_sequence=px.colors.qualitative.Pastel)
-        st.plotly_chart(fig_status, use_container_width=True)
+        st.plotly_chart(fig_status, width="stretch")
         
     with c2:
-        fig_bairro = px.bar(df_sample.groupby("bairro").size().reset_index(name='count'), 
-                           x="bairro", y="count", title="Inscritos por Bairro",
-                           labels={'count': 'Qtd', 'bairro': 'Bairro'})
-        st.plotly_chart(fig_bairro, use_container_width=True)
+        df_bairro = df_display.groupby("bairro").size().reset_index(name='count') if 'bairro' in df_display.columns else df_display.groupby("bairro_municipal").size().reset_index(name='count')
+        b_col = 'bairro' if 'bairro' in df_display.columns else 'bairro_municipal'
+        
+        fig_bairro = px.bar(df_bairro, 
+                           x=b_col, y="count", title="Inscritos por Bairro",
+                           labels={'count': 'Qtd', b_col: 'Bairro'})
+        st.plotly_chart(fig_bairro, width="stretch")
 
     st.subheader("📋 Lista Recente de Inscritos")
-    st.dataframe(df_sample, use_container_width=True)
+    st.dataframe(df_display, width="stretch")
 
 elif selected == "Análise de Evasão":
     st.title("📉 Diagnóstico de Evasão")
@@ -89,25 +119,23 @@ elif selected == "Análise de Evasão":
     
     from src.analysis_utils import calculate_evasion_by_neighborhood
     
-    ev_data = calculate_evasion_by_neighborhood(df_sample)
+    ev_data = calculate_evasion_by_neighborhood(df_display)
     
     if ev_data is not None:
         st.subheader("Taxa de Status por Bairro")
         st.bar_chart(ev_data)
         
-        st.info("💡 **Insight**: Bairros com maior número de 'pendentes' podem precisar de maior suporte no preenchimento do formulário.")
-    
     st.divider()
     st.subheader("Correlação Renda vs Status")
-    fig_scatter = px.box(df_sample, x="status", y="renda", points="all", title="Renda Familiar por Status de Inscrição")
-    st.plotly_chart(fig_scatter, use_container_width=True)
+    fig_scatter = px.box(df_display, x="status", y="renda" if "renda" in df_display.columns else "socioeconomico.renda_familiar", 
+                        points="all", title="Renda Familiar por Status de Inscrição")
+    st.plotly_chart(fig_scatter, width="stretch")
 
 elif selected == "Mapa por Bairro":
     st.title("📍 Distribuição Geográfica")
-    st.markdown("Mapa de concentração de inscritos. (Utilizando coordenadas estimadas para demonstração)")
+    st.markdown("Mapa de concentração de inscritos.")
     
-    # Exemplo de Mapa Streamlit
-    st.map(df_sample, latitude="lat", longitude="lon", size=20)
+    st.map(df_display, latitude="lat", longitude="lon", size=20)
     
     st.subheader("Densidade por Bairro")
     st.write(df_sample['bairro'].value_counts())
