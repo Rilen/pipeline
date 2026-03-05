@@ -15,15 +15,15 @@ st.set_page_config(page_title="Gestão de Inscritos - Dashboard", layout="wide")
 def connect_db():
     try:
         if "firebase_secrets" in st.secrets:
-            # Streamlit Cloud
+            # No Streamlit Cloud (Segredos do Github)
             key_dict = json.loads(st.secrets["firebase_secrets"])
-            # Lógica para inicializar via dict se necessário
-            # initialize_firebase_from_dict(key_dict)
-            st.info("Conectado via Streamlit Secrets")
+            from src.firebase_client import initialize_firebase_from_dict
+            initialize_firebase_from_dict(key_dict)
+            # st.info("Conectado via Streamlit Secrets") # Removido para manter a UI limpa
         else:
-            # Local
+            # Desenvolvimento Local
             initialize_firebase()
-            st.success("Conectado localmente ao Firebase")
+            # st.success("Conectado localmente ao Firebase")
         return get_firestore_client()
     except Exception as e:
         st.error(f"Erro ao conectar ao Firebase: {e}")
@@ -45,23 +45,36 @@ db = connect_db()
 if selected == "Dashboard":
     st.title("📊 Painel Geral de Inscritos")
     
-    # Exemplo de Métricas
+    # Dados de Exemplo baseados no seu JSON
+    df_sample = pd.DataFrame([
+        {"id_inscricao": "INC8821", "nome_aluno": "João Silva", "idade": 19, "bairro": "Centro", "status": "concluido", "renda": 1200.50},
+        {"id_inscricao": "INC8822", "nome_aluno": "Maria Oliveira", "idade": 22, "bairro": "Vila Nova", "status": "pendente", "renda": 2500.00},
+        {"id_inscricao": "INC8823", "nome_aluno": "Carlos Souza", "idade": 18, "bairro": "Centro", "status": "concluido", "renda": 980.00}
+    ])
+
+    # Exemplo de Métricas Dinâmicas
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Inscritos", "1,234", "+5%")
-    col2.metric("Inscrições Ativas", "850", "-2%")
-    col3.metric("Evasão Média", "12%", "Estável")
-    col4.metric("IDH Médio (Mun)", "0.785", "+0.002")
+    col1.metric("Total Inscritos", len(df_sample))
+    col2.metric("Concluídos", len(df_sample[df_sample['status'] == 'concluido']))
+    col3.metric("Idade Média", f"{df_sample['idade'].mean():.1f} anos")
+    col4.metric("Renda Média", f"R$ {df_sample['renda'].mean():.2f}")
 
     st.markdown("---")
     
-    # Gráfico de exemplo (Mockup)
-    df_mock = pd.DataFrame({
-        "Bairro": ["Centro", "Jardins", "Vila Nova", "Planalto"],
-        "Inscritos": [300, 450, 200, 284]
-    })
+    c1, c2 = st.columns(2)
     
-    fig = px.bar(df_mock, x="Bairro", y="Inscritos", title="Volume por Bairro (Exemplo)")
-    st.plotly_chart(fig, use_container_width=True)
+    with c1:
+        fig_status = px.pie(df_sample, names="status", title="Status das Inscrições", color_discrete_sequence=px.colors.qualitative.Pastel)
+        st.plotly_chart(fig_status, use_container_width=True)
+        
+    with c2:
+        fig_bairro = px.bar(df_sample.groupby("bairro").size().reset_index(name='count'), 
+                           x="bairro", y="count", title="Inscritos por Bairro",
+                           labels={'count': 'Qtd', 'bairro': 'Bairro'})
+        st.plotly_chart(fig_bairro, use_container_width=True)
+
+    st.subheader("📋 Lista Recente de Inscritos")
+    st.dataframe(df_sample, use_container_width=True)
 
 elif selected == "Análise de Evasão":
     st.title("📉 Diagnóstico de Evasão")
