@@ -51,8 +51,8 @@ def ingest_to_firestore(file_path, collection_name='inscritos'):
 
 if __name__ == "__main__":
     try:
-        initialize_firebase('../config/service-account.json')
-        raw_dir = '../data/raw'
+        initialize_firebase('config/service-account.json')
+        raw_dir = 'data/raw'
         # Prioriza o JSON de exemplo se existir
         files = [f for f in os.listdir(raw_dir) if f.endswith(('.csv', '.json')) and 'TEMPLATE' not in f]
         

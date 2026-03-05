@@ -4,6 +4,7 @@ numpy
 openpyxl
 
 # Firebase / GCP
+firebase-admin
 google-cloud-firestore
 google-cloud-storage
 
