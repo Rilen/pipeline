@@ -23,7 +23,12 @@ def ingest_to_firestore(file_path, collection_name='inscritos'):
         print("Formato de arquivo não suportado.")
         return
 
-    print(f"Lendo {len(df)} registros de {file_path}...")
+    # Define a coleção baseada no nome do arquivo, se 'servidor' estiver presente
+    filename = os.path.basename(file_path)
+    if 'servidor' in filename.lower():
+        collection_name = 'servidores'
+        
+    print(f"Lendo {len(df)} registros de {file_path} (Coleção: {collection_name})...")
     
     # Batch upload para performance
     batch = db.batch()

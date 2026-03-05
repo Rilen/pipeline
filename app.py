@@ -45,8 +45,8 @@ def connect_db():
 with st.sidebar:
     selected = option_menu(
         menu_title="Main Menu",
-        options=["Dashboard", "Análise de Evasão", "Mapa por Bairro", "Configurações"],
-        icons=["house", "person-x", "map", "gear"],
+        options=["Dashboard", "Servidores", "Análise de Evasão", "Mapa por Bairro", "Configurações"],
+        icons=["house", "people", "person-x", "map", "gear"],
         menu_icon="cast",
         default_index=0,
     )
@@ -160,6 +160,49 @@ elif selected == "Mapa por Bairro":
     b_col_map = 'bairro' if 'bairro' in df_display.columns else ('bairro_municipal' if 'bairro_municipal' in df_display.columns else None)
     if b_col_map:
         st.write(df_display[b_col_map].value_counts())
+
+elif selected == "Servidores":
+    st.title("👥 Gestão de Servidores")
+    st.markdown("Análise de Quadro de Pessoal e Lotações.")
+    
+    def fetch_servidores(db):
+        if db:
+            try:
+                docs = db.collection('servidores').stream()
+                data = [doc.to_dict() for doc in docs]
+                if data:
+                    return pd.DataFrame(data)
+            except:
+                pass
+        return None
+
+    df_serv = fetch_servidores(db)
+    
+    if df_serv is not None:
+        st.success(f"📂 {len(df_serv)} Servidores carregados do Firestore!")
+        
+        # Métricas de Servidores
+        s1, s2, s3 = st.columns(3)
+        s1.metric("Total de Servidores", len(df_serv))
+        s2.metric("Lotações Distintas", df_serv['Lotacao'].nunique())
+        s3.metric("Regime Geral", len(df_serv[df_serv['RegimeAposentadoria'] == 'Geral']))
+        
+        st.divider()
+        
+        # Gráficos de Servidores
+        sc1, sc2 = st.columns(2)
+        with sc1:
+            fig_lot = px.bar(df_serv.groupby('Lotacao').size().reset_index(name='qtd'), 
+                            x='Lotacao', y='qtd', title="Servidores por Lotação")
+            st.plotly_chart(fig_lot, width="stretch")
+        with sc2:
+            fig_vinc = px.pie(df_serv, names='VinculoEmpregaticio', title="Vínculo Empregatício")
+            st.plotly_chart(fig_vinc, width="stretch")
+            
+        st.subheader("📋 Lista Completa de Servidores")
+        st.dataframe(df_serv, width="stretch")
+    else:
+        st.info("💡 Nenhuns dados de servidores encontrados. Rode a ingestão para o arquivo `servidor.json`.")
 
 elif selected == "Configurações":
     st.title("⚙️ Configurações do Sistema")
