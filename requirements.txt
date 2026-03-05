@@ -1,0 +1,23 @@
+# Core Data Science
+pandas
+numpy
+openpyxl
+
+# Firebase / GCP
+google-cloud-firestore
+google-cloud-storage
+
+# Visualization
+matplotlib
+seaborn
+plotly
+
+# Machine Learning & Modeling
+scikit-learn
+scipy
+
+# Development & EDA
+ipykernel
+jupyter
+python-dotenv
+ requests
