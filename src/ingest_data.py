@@ -55,16 +55,24 @@ def ingest_to_firestore(file_path, collection_name='inscritos'):
     print(f"✅ Sucesso! {count} registros na coleção '{collection_name}'.")
 
 if __name__ == "__main__":
+    import sys
     try:
         initialize_firebase('config/service-account.json')
         raw_dir = 'data/raw'
-        # Prioriza o JSON de exemplo se existir
-        files = [f for f in os.listdir(raw_dir) if f.endswith(('.csv', '.json')) and 'TEMPLATE' not in f]
         
-        if files:
-            # Processa o primeiro arquivo encontrado (ex: exemplo_inscritos.json)
-            target = os.path.join(raw_dir, files[0])
-            ingest_to_firestore(target)
+        # Se um arquivo for passado via terminal, usa ele. Senão, processa a pasta toda.
+        if len(sys.argv) > 1:
+            targets = [sys.argv[1]]
+        else:
+            targets = [os.path.join(raw_dir, f) for f in os.listdir(raw_dir) 
+                      if f.endswith(('.csv', '.json', '.xlsx')) and 'TEMPLATE' not in f]
+        
+        if targets:
+            for target in targets:
+                if os.path.exists(target):
+                    ingest_to_firestore(target)
+                else:
+                    print(f"⚠️ Arquivo não encontrado: {target}")
         else:
             print("Nenhum arquivo encontrado em data/raw/.")
     except Exception as e:
