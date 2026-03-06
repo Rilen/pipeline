@@ -69,39 +69,54 @@ def analyze_with_gemini(content, context_type="data"):
         response = model.generate_content(prompt)
         return f"## 🤖 Insights da IA (via Gemini)\n{response.text}"
     except Exception as e:
-        return f"⚠️ Gemini indisponível (Quota/Erro): {str(e)}"
+        return f"⚠️ Erro Gemini: {str(e)}"
 
 def process_file_for_dashboard(uploaded_file):
-    """Lógica Multi-IA: Tenta Gemini -> Tenta Groq -> Estatística."""
+    """Lógica Multi-IA: Tenta Gemini -> Tenta Groq -> Backup Local."""
     
-    if uploaded_file.name.endswith('.xlsx') or uploaded_file.name.endswith('.csv') or uploaded_file.name.endswith('.json'):
-        if uploaded_file.name.endswith('.xlsx'):
-            df = pd.read_excel(uploaded_file)
-        elif uploaded_file.name.endswith('.json'):
-            df = pd.read_json(uploaded_file)
+    try:
+        if uploaded_file.name.endswith('.xlsx') or uploaded_file.name.endswith('.csv') or uploaded_file.name.endswith('.json'):
+            if uploaded_file.name.endswith('.xlsx'):
+                df = pd.read_excel(uploaded_file)
+            elif uploaded_file.name.endswith('.json'):
+                df = pd.read_json(uploaded_file)
+            else:
+                df = pd.read_csv(uploaded_file)
+            summary = f"Colunas: {list(df.columns)}. Estatísticas: {df.describe().to_string()}"
+            context = "planilha"
+        elif uploaded_file.name.endswith('.docx'):
+            text = extract_text_from_docx(uploaded_file)
+            if not text.strip() or "Erro ao ler" in text:
+                return f"❌ Não foi possível extrair texto do documento: {text}", None
+            summary = text
+            context = "documento"
+            df = None
         else:
-            df = pd.read_csv(uploaded_file)
-        summary = f"Colunas: {list(df.columns)}. Estatísticas: {df.describe().to_string()}"
-        context = "planilha"
-    elif uploaded_file.name.endswith('.docx'):
-        text = extract_text_from_docx(uploaded_file)
-        summary = text[:3000]
-        context = "documento"
-        df = None
-    else:
-        return "Formato não suportado.", None
+            return "❌ Formato não suportado.", None
+    except Exception as e:
+        return f"❌ Erro crítico no processamento do arquivo: {str(e)}", None
 
     # Tenta Gemini primeiro
-    ia_report = analyze_with_gemini(summary[:2000], context)
+    ia_report = analyze_with_gemini(summary[:3000], context)
     
-    # Se Gemini falhou por quota ou erro, tenta Groq
-    if not ia_report or "Quota" in ia_report or "indisponível" in ia_report:
-        groq_report = analyze_with_groq(summary[:2000], context)
+    # Se Gemini falhou, tenta Groq
+    if not ia_report or "Quota" in ia_report or "indisponível" in ia_report or "Erro" in ia_report:
+        groq_report = analyze_with_groq(summary[:3000], context)
         if groq_report:
             ia_report = groq_report
 
-    # Sempre gera o estatístico como base
-    local_report = generate_local_statistical_report(df) if df is not None else ""
+    # --- Tratamento de Fallback ---
+    # Se as IAs falharam, mostramos o conteúdo bruto ou um aviso claro
+    if not ia_report or "Erro" in ia_report or "indisponível" in ia_report:
+        if context == "documento":
+            ia_report = f"## 📄 Conteúdo do Documento (Sem IA no momento)\n\nAs IAs não puderam processar o arquivo. Abaixo está o início do texto extraído:\n\n{summary[:1000]}..."
+        else:
+            ia_report = "## ⚠️ Insights de IA indisponíveis\n\nVerifique suas chaves de API nos segredos do Streamlit. Mas não se preocupe, o relatório estatístico abaixo está ativo!"
+
+    # Sempre gera o estatístico como base para planilhas
+    local_report = ""
+    if df is not None:
+        local_report = generate_local_statistical_report(df)
     
     full_report = f"{ia_report}\n\n---\n\n{local_report}"
     return full_report, df
