@@ -79,7 +79,7 @@ st.markdown("""
 
 # --- Header & Navegação ---
 st.title("🤖 Analista IA PRO")
-st.caption("Engenharia de Dados e Análise Preditiva de Alta Performance")
+st.caption("Engenharia de Dados e Análise Preditiva de Alta Performance | V2.1")
 st.markdown("---")
 
 # --- Interface Principal (Área de Upload) ---
