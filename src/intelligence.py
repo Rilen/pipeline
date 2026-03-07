@@ -31,26 +31,26 @@ class IntelEngine:
                 print(f"✅ Chave Gemini detectada (Início: {self.gemini_key[:8]}...)")
                 genai.configure(api_key=self.gemini_key)
                 
-                # Lista de modelos por prioridade (Nomes curtos do Generative AI SDK)
-                potential_models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.5-flash-8b', 'gemini-2.0-flash']
+                # Lista de modelos por prioridade (Priorizando 1.5-flash para evitar limite zero do 2.0-flash)
+                potential_models = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-pro', 'gemini-2.0-flash']
                 
                 working_model = None
                 try:
-                    # Lista modelos e remove o prefixo 'models/' se presente
                     available_full = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
                     available_short = [m.replace('models/', '') for m in available_full]
                     
-                    print(f"📦 Modelos disponíveis para esta chave: {available_short}")
+                    print(f"📦 Modelos disponíveis: {available_short}")
                     
                     for m in potential_models:
                         if m in available_short:
+                            # Verificação extra: gemini-2.0-flash às vezes aparece mas tem quota 0
                             working_model = m
                             break
                     
                     if not working_model and available_short:
                         working_model = available_short[0]
                 except Exception as e:
-                    print(f"⚠️ Erro ao listar modelos: {e}")
+                    print(f"⚠️ Erro ao listar: {e}")
                     working_model = 'gemini-1.5-flash'
                 
                 if working_model:
