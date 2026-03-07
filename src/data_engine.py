@@ -16,12 +16,26 @@ class FirestoreDataInterface:
         self.service_account_path = service_account_path
         self._db = None
         self._bucket = None
-        
-        if not os.path.exists(service_account_path):
-             # Silencioso se não houver arquivo, o Streamlit Secrets cuidará se estiver online
-             pass
-        else:
+        if os.path.exists(service_account_path):
              self._initialize_from_file(service_account_path)
+        elif "firebase_secrets" in st.secrets:
+             self._initialize_from_secrets()
+        else:
+             print("⚠️ Firebase credentials not found (neither file nor secrets).")
+
+    def _initialize_from_secrets(self):
+        try:
+            if not firebase_admin._apps:
+                # Converte o AttrDict do Streamlit em um dicionário real para o Firebase
+                cred_dict = dict(st.secrets["firebase_secrets"])
+                cred = credentials.Certificate(cred_dict)
+                firebase_admin.initialize_app(cred)
+                print("✅ Firebase initialized from Streamlit secrets.")
+            
+            self._db = firestore.client()
+            self._bucket = storage.bucket()
+        except Exception as e:
+            print(f"❌ Error initializing Firebase from secrets: {str(e)}")
 
     def _initialize_from_file(self, path):
          try:
