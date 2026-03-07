@@ -15,99 +15,87 @@ class IntelEngine:
     
     def __init__(self):
         import os
-        # Debug logs para o terminal (não pro Streamlit UI por segurança)
         print("🔍 Verificando chaves de API...")
         
-        # O Streamlit às vezes demora a recarregar segredos de arquivos novos
-        self.gemini_key = st.secrets.get("GEMINI_API_KEY") 
-        if not self.gemini_key:
-            self.gemini_key = os.environ.get("GEMINI_API_KEY")
-            
+        self.gemini_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
         self.groq_key = st.secrets.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY")
         
-        self.gemini_model = None
+        self.available_gemini_models = []
         if self.gemini_key:
             try:
-                print(f"✅ Chave Gemini detectada (Início: {self.gemini_key[:8]}...)")
                 genai.configure(api_key=self.gemini_key)
-                
-                # Lista de modelos por prioridade (Priorizando 1.5-flash para evitar limite zero do 2.0-flash)
-                potential_models = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-pro', 'gemini-2.0-flash']
-                
-                working_model = None
-                try:
-                    available_full = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                    available_short = [m.replace('models/', '') for m in available_full]
-                    
-                    print(f"📦 Modelos disponíveis: {available_short}")
-                    
-                    for m in potential_models:
-                        if m in available_short:
-                            # Verificação extra: gemini-2.0-flash às vezes aparece mas tem quota 0
-                            working_model = m
-                            break
-                    
-                    if not working_model and available_short:
-                        working_model = available_short[0]
-                except Exception as e:
-                    print(f"⚠️ Erro ao listar: {e}")
-                    working_model = 'gemini-1.5-flash'
-                
-                if working_model:
-                    self.gemini_model = genai.GenerativeModel(working_model)
-                    print(f"🚀 Motor Vision OCR pronto: {working_model}")
+                models = genai.list_models()
+                self.available_gemini_models = [m.name.replace('models/', '') for m in models if 'generateContent' in m.supported_generation_methods]
+                print(f"📦 Modelos Gemini detectados: {self.available_gemini_models}")
             except Exception as e:
-                print(f"❌ Erro crítico no setup do Gemini: {e}")
-        else:
-            print("❌ Nenhuma chave GEMINI_API_KEY encontrada em st.secrets ou ENV.")
+                print(f"❌ Erro ao listar modelos Gemini: {e}")
         
         self.groq_client = None
         if self.groq_key:
             try:
                 self.groq_client = Groq(api_key=self.groq_key)
-                print(f"✅ Motor Groq pronto (Início: {self.groq_key[:8]}...)")
             except Exception as e:
                 print(f"❌ Erro Groq: {e}")
 
     def analyze_image_ocr(self, uploaded_image):
         """
-        Extrai texto e metadados de imagens (OCR Avançado) usando Gemini Vision.
+        Extrai texto de imagens com fallback automático de modelos em caso de erro de cota (429).
         """
-        if not self.gemini_model:
-            return "❌ API Key do Gemini não configurada para OCR.", None
+        if not self.gemini_key:
+            return "❌ API Key do Gemini não configurada.", None
 
         try:
             img = PIL.Image.open(uploaded_image)
-            
             prompt = """
-            Analise esta imagem cuidadosamente. 
-            1. Extraia TODO o texto legível.
-            2. Identifique o tipo de documento (RG, CPF, Comprovante, Relatório, etc).
-            3. Se houver dados tabelados ou estruturados, organize-os em um formato JSON.
-            4. Dê 3 insights sobre a qualidade do documento ou os dados encontrados.
-            
+            Analise esta imagem, extraia todo o texto legível e dê 3 insights.
             Responda em Markdown estruturado.
             """
             
-            response = self.gemini_model.generate_content([prompt, img])
-            return response.text, img
+            # Ordem de tentativa
+            candidates = ['gemini-1.5-flash', 'gemini-flash-lite-latest', 'gemini-1.5-pro', 'gemini-flash-latest', 'gemini-2.0-flash']
+            to_try = [m for m in candidates if m in self.available_gemini_models]
+            
+            if not to_try and self.available_gemini_models:
+                to_try = [self.available_gemini_models[0]]
+
+            last_error = ""
+            for model_name in to_try:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    response = model.generate_content([prompt, img])
+                    return response.text, img
+                except Exception as e:
+                    last_error = str(e)
+                    if "429" in last_error:
+                        print(f"⚠️ Modelo {model_name} sem cota (429). Tentando próximo...")
+                        continue
+                    break
+            
+            return f"❌ Todos os modelos Gemini falharam ou estão sem cota. Erro final: {last_error}", None
+            
         except Exception as e:
-            return f"⚠️ Erro no processamento de imagem/OCR: {str(e)}", None
+            return f"⚠️ Erro fatal no OCR: {str(e)}", None
 
     def analyze_document_text(self, text, context="documento"):
         """
-        Analisa blocos de texto ou CSVs usando LLMs.
+        Analisa texto com fallback Gemini (Modelos Dinâmicos) -> Groq.
         """
         prompt = f"Analise este {context} e extraia 3 insights estratégicos curtos:\n\n{text[:8000]}"
         
-        # Prioridade: Gemini -> Groq -> Local (Silencioso)
-        if self.gemini_model:
-            try:
-                response = self.gemini_model.generate_content(prompt)
-                return f"## 🤖 Insights IA (Gemini)\n{response.text}"
-            except:
-                pass
+        # 1. Tentativa com Gemini
+        candidates = ['gemini-1.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash']
+        to_try = [m for m in candidates if m in self.available_gemini_models]
         
+        for model_name in to_try:
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                return f"## 🤖 Insights IA (Gemini - {model_name})\n{response.text}"
+            except Exception as e:
+                if "429" in str(e): continue
+                break
+
+        # 2. Tentativa com Groq (Llama 3)
         if self.groq_client:
             try:
                 completion = self.groq_client.chat.completions.create(
@@ -118,7 +106,7 @@ class IntelEngine:
             except:
                 pass
         
-        return "## 📊 Análise Local\nInsights de IA indisponíveis no momento. Usando apenas estatística local."
+        return "## 📊 Análise Local\nInsights de IA indisponíveis (Cota Gemini/Groq excedida)."
 
     @staticmethod
     def extract_text_from_docx(file):
