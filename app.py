@@ -4,151 +4,224 @@ import plotly.express as px
 import plotly.graph_objects as go
 import json
 import os
-from src.ia_utils import process_file_for_dashboard
+import io
+from PIL import Image
 
-# --- Configuração de Página ---
-st.set_page_config(page_title="Analista IA Profissional", layout="wide")
+# --- Novos Módulos Arquitetados (Clean Code) ---
+from src.intelligence import intel_engine as intel
+from src.analytics import analytics as ds
+from src.data_engine import db_interface
 
-# Estilo Personalizado para Premium Look
+# --- Configurações de Interface Premium ---
+st.set_page_config(
+    page_title="Analista IA Profissional | Hybrid Analytics 2026",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+# Estilos Visuais Avançados (Glassmorphism & Vibrancy)
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@300;600;800&display=swap');
+
+    :root {
+        --primary: #5145cd;
+        --secondary: #2dd4bf;
+    }
+
     .main {
-        background-color: #f8f9fa;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        font-family: 'Inter', sans-serif;
     }
+
+    /* Glass Cards */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        padding: 25px;
+        margin-bottom: 25px;
+        transition: all 0.3s ease-in-out;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+    }
+    
+    .glass-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 48px 0 rgba(31, 38, 135, 0.12);
+        border: 1px solid rgba(81, 69, 205, 0.2);
+    }
+
+    /* Modern Headers */
+    h1 {
+        font-family: 'Outfit', sans-serif;
+        font-weight: 800;
+        background: linear-gradient(90deg, #5145cd, #2dd4bf);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 3rem !important;
+        margin-bottom: 0px !important;
+    }
+    
     .stMetric {
-        background-color: #ffffff;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        background: white;
+        padding: 20px !important;
+        border-radius: 15px !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
     }
-    div[data-testid="stStatusWidget"] {
-        background-color: #e3f2fd;
-        border-radius: 10px;
-    }
+
+    /* Hide standard UI fluff */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🤖 Analista IA Profissional")
+# --- Header & Navegação ---
+st.title("🤖 Analista IA PRO")
+st.caption("Engenharia de Dados e Análise Preditiva de Alta Performance")
 st.markdown("---")
 
-# --- Área de Upload ---
-st.subheader("📁 Central de Ingestão e Análise")
-uploaded_file = st.file_uploader("Arraste planilhas (.xlsx, .csv), documentos (.docx) ou arquivos de dados (.json)", type=["xlsx", "csv", "docx", "json"], label_visibility="collapsed")
+# --- Interface Principal (Área de Upload) ---
+col_u1, col_u2 = st.columns([2, 1])
 
+with col_u1:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.subheader("📁 Central de Arquivos Multi-IA")
+    uploaded_file = st.file_uploader(
+        "Arraste planilhas (.xlsx, .csv), documentos (.docx), imagens (.jpg, .png) ou dados (.json)", 
+        type=["xlsx", "csv", "docx", "json", "png", "jpg", "jpeg"], 
+        label_visibility="collapsed"
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with col_u2:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.subheader("⚙️ Configurações Rápidas")
+    target_collection = st.text_input("Coleção Firestore", value="dados_analise_ia")
+    enable_cleaning = st.toggle("Limpeza Automática (Normalização)", value=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# --- Fluxo de Processamento Inteligente ---
 if uploaded_file is not None:
-    with st.status("🧠 Processando análise avançada...", expanded=True) as status:
-        st.write("Extraindo metadados...")
-        report, df = process_file_for_dashboard(uploaded_file)
-        status.update(label="✅ Análise concluída!", state="complete", expanded=False)
+    file_type = uploaded_file.name.split('.')[-1].lower()
     
-    # --- Layout de Relatório ---
-    tab1, tab2, tab3 = st.tabs(["🤖 Insights de IA", "📊 Dashboard Automático", "📋 Dados Brutos"])
-    
-    with tab1:
-        st.markdown(report)
+    with st.status("🧠 Engine processando análise estratégica...", expanded=True) as status:
         
-    with tab2:
-        if df is not None:
-            # --- 1. Top Metrics (KPIs) ---
-            st.subheader("📌 Indicadores Principais (KPIs)")
-            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+        # --- CASO 1: IMAGENS (OCR + VISION) ---
+        if file_type in ['png', 'jpg', 'jpeg']:
+            st.write("🔍 Iniciando Visão Computacional / OCR...")
+            report, image = intel.analyze_image_ocr(uploaded_file)
+            df = None
             
-            num_cols = df.select_dtypes(include=['number']).columns
-            cat_cols = df.select_dtypes(include=['object', 'category']).columns
+        # --- CASO 2: DOCUMENTOS E PLANILHAS ---
+        else:
+            st.write("📊 Analisando estrutura de dados...")
             
-            kpi1.metric("Total de Registros", len(df))
-            kpi2.metric("Colunas Detectadas", len(df.columns))
-            
-            if len(num_cols) > 0:
-                # Usa a primeira coluna numérica como exemplo de métrica principal
-                target_col = num_cols[0]
-                kpi3.metric(f"Média {target_col}", f"{df[target_col].mean():,.2f}")
-                kpi4.metric(f"Máximo {target_col}", f"{df[target_col].max():,.2f}")
+            if file_type == 'docx':
+                 raw_text = intel.extract_text_from_docx(uploaded_file)
+                 report = intel.analyze_document_text(raw_text, "documento")
+                 df = None
             else:
-                kpi3.metric("Campos Texto", len(cat_cols))
-                kpi4.metric("Qualidade", "100%" if df.isnull().sum().sum() == 0 else "Alerta")
+                 # CSV / XLSX / JSON
+                 try:
+                      if file_type == 'xlsx': df = pd.read_excel(uploaded_file)
+                      elif file_type == 'json': df = pd.read_json(uploaded_file)
+                      else: df = pd.read_csv(uploaded_file)
+                      
+                      # Normalização/Limpeza (Engenharia de Software)
+                      if enable_cleaning:
+                           df = ds.clean_and_normalize(df)
+                      
+                      # Gera Resumo (Inteligência Híbrida)
+                      summary = f"Estrutura: {list(df.columns)}. Resumo Estatístico: {df.describe().to_string()}"
+                      report = intel.analyze_document_text(summary, "planilha")
+                 except Exception as e:
+                      st.error(f"Erro ao processar dados: {e}")
+                      df = None
+                      report = "Erro fatal no parsing do arquivo."
 
-            st.markdown("---")
-            
-            # --- 2. Galeria de Gráficos ---
-            col_g1, col_g2 = st.columns(2)
-            
-            with col_g1:
-                # Gráfico de Distribuição (Categorias)
-                if len(cat_cols) > 0:
-                    selected_cat = st.selectbox("Analisar Distribuição de:", cat_cols)
-                    
-                    # Agrupar categorias menores em 'Outros' se houver muitas
-                    counts = df[selected_cat].value_counts()
-                    if len(counts) > 10:
-                        top_n = 10
-                        others_sum = counts[top_n:].sum()
-                        counts = counts[:top_n]
-                        counts['Outros'] = others_sum
-                    
-                    df_counts = counts.reset_index()
-                    df_counts.columns = [selected_cat, 'Quantidade']
-                    
-                    fig_pie = px.pie(df_counts, names=selected_cat, values='Quantidade',
-                                   title=f"Distribuição: {selected_cat}", 
-                                   hole=0.4, color_discrete_sequence=px.colors.qualitative.Safe)
-                    
-                    fig_pie.update_layout(
-                        legend=dict(orientation="h", yanchor="bottom", y=-0.5, xanchor="center", x=0.5),
-                        margin=dict(t=40, b=100, l=0, r=0)
-                    )
-                    st.plotly_chart(fig_pie, width="stretch")
-                else:
-                    st.info("Nenhuma coluna categórica para gráfico de pizza.")
+        status.update(label="✅ Análise concluída!", state="complete", expanded=False)
 
-            with col_g2:
-                # Gráfico de Tendência ou Barras
-                if len(num_cols) > 0:
-                    y_axis = st.selectbox("Ver Tendência/Valor de:", num_cols)
-                    if len(cat_cols) > 0:
-                        x_axis = st.selectbox("Agrupar por:", cat_cols, index=0)
-                        
-                        # Limita a 15 maiores categorias para não poluir o gráfico de barras
-                        df_grouped = df.groupby(x_axis)[y_axis].mean().sort_values(ascending=False).head(15).reset_index()
-                        
-                        fig_bar = px.bar(df_grouped, 
-                                       x=x_axis, y=y_axis, title=f"Top 15 Médias de {y_axis} por {x_axis}",
-                                       color=y_axis, color_continuous_scale="Viridis")
-                        
-                        fig_bar.update_layout(xaxis_tickangle=-45) # Inclina os nomes para não sobrepor
-                        st.plotly_chart(fig_bar, width="stretch")
-                    else:
-                        st.line_chart(df[y_axis])
-                else:
-                    st.info("Nenhuma coluna numérica para análise de valores.")
+    # --- DISPLAYS DE RESULTADOS ---
+    tab_report, tab_viz, tab_raw = st.tabs(["🤖 Insights de IA", "📊 Dash de Alta Performance", "📋 Visão de Engenheiro"])
 
-            # --- 3. Correlação Dinâmica ---
-            if len(num_cols) >= 2:
-                st.subheader("🧬 Análise de Correlação")
-                c1, c2 = num_cols[0], num_cols[1]
-                fig_scatter = px.scatter(df, x=c1, y=c2, trendline="ols", 
-                                       title=f"Relação entre {c1} e {c2}",
-                                       template="plotly_white")
-                st.plotly_chart(fig_scatter, use_container_width=True)
+    with tab_report:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        if file_type in ['png', 'jpg', 'jpeg'] and image is not None:
+             # Convertemos para RGB para garantir que o Streamlit consiga processar sem depender de metadados de formato
+             if image.mode != 'RGB':
+                 display_img = image.convert('RGB')
+             else:
+                 display_img = image
+             st.image(display_img, caption="Visualização do Original", use_container_width=True)
+        st.markdown(report)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        else:
-            st.info("📄 Documentos de texto (.docx) não geram dashboard automático de gráficos.")
-
-    with tab3:
+    with tab_viz:
         if df is not None:
-            st.subheader("📋 Visualização da Planilha")
-            st.dataframe(df, width="stretch")
-            
-            # Botão de Ação Especial
-            st.divider()
-            if st.button("💾 Integrar Dados ao Histórico Profissional"):
-                st.balloons()
-                st.success("Dados prontos para processamento em lote!")
+             config, stats = ds.generate_statistical_profile(df)
+             
+             # KPIs
+             k1, k2, k3, k4 = st.columns(4)
+             k1.metric("Registros", f"{config['num_records']:,}")
+             k2.metric("Qualidade", f"{100 - config['missing_data']:.1f}%")
+             k3.metric("Numéricas", len(config['numeric_cols']))
+             k4.metric("Texto", len(config['cat_cols']))
+             
+             st.markdown("---")
+             
+             # Gráficos
+             g1, g2 = st.columns(2)
+             
+             with g1:
+                  if config['cat_cols']:
+                       sel_cat = st.selectbox("Categorizar por:", config['cat_cols'])
+                       fig_pie = px.pie(df, names=sel_cat, hole=0.5, template="plotly_white",
+                                     title=f"Mix Geográfico/Setorial: {sel_cat}",
+                                     color_discrete_sequence=px.colors.qualitative.Pastel)
+                       st.plotly_chart(fig_pie, use_container_width=True)
+                  else:
+                       st.info("Nenhuma categoria detectada.")
+
+             with g2:
+                  if config['numeric_cols']:
+                       y_val = st.selectbox("Analisar Valor de:", config['numeric_cols'])
+                       if config['cat_cols']:
+                            df_grouped = ds.calculate_group_averages(df, config['cat_cols'][0], y_val)
+                            fig_bar = px.bar(df_grouped, x=config['cat_cols'][0], y=y_val, 
+                                          title=f"Ranking: {y_val} por {config['cat_cols'][0]}",
+                                          template="plotly_white", color=y_val)
+                            st.plotly_chart(fig_bar, use_container_width=True)
+                       else:
+                            st.line_chart(df[y_val])
+
         else:
-            st.write("Conteúdo extraído do documento:")
-            # Se for docx, o process_file_for_dashboard já retornou o texto no report
-            st.info("O conteúdo textual está disponível na aba 'Insights de IA'.")
+             st.info("A visualização gráfica automática está disponível apenas para planilhas e JSONs.")
+
+    with tab_raw:
+        if df is not None:
+             st.subheader("📋 Estrutura da Tabela")
+             st.dataframe(df, use_container_width=True)
+             
+             # Ação de Engenheiro: Ingestão
+             st.markdown("---")
+             if st.button("🚀 Commit de Dados para Firestore", use_container_width=True):
+                  with st.spinner("Subindo em lote..."):
+                       msg = db_interface.batch_upload_df(df, target_collection)
+                       st.success(msg)
+                       st.balloons()
+        else:
+             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+             st.markdown("### Extração de Metadados Brutos")
+             st.code(report[:5000] if report else "Vazio")
+             st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Rodapé ---
 st.markdown("---")
-st.caption("Powered by Antigravity IA | Hybrid Analytics Engine 2026")
+st.markdown(
+    '<div style="text-align: center; color: #94a3b8;">'
+    'Desenvolvido por RTL Engine @ 2026 | Arquitetura Híbrida Gemini & Groq'
+    '</div>', 
+    unsafe_allow_html=True
+)

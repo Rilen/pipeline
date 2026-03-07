@@ -30,3 +30,4 @@ requests
 python-docx
 google-generativeai
 groq
+Pillow
