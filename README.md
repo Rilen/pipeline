@@ -91,9 +91,49 @@ pipeline/
 ├── app.py                # Front-end Streamlit de Alta Performance
 └── README.md             # Este arquivo
 ```
+4.  **Execute o projeto:**
+    ```bash
+    streamlit run app.py
+    ```
+
+5.  **Acesse a aplicação:**
+    A aplicação estará rodando em `http://localhost:8501`.
 
 ---
 
+## 📁 Estrutura do Projeto (Visão Geral)
+
+Para facilitar a navegação, aqui está uma breve descrição da organização das pastas.
+
+```text
+pipeline/
+├── src/                  # Código-fonte principal da aplicação
+│   ├── analytics.py      # Lógica de Engenharia de Dados & Estatística
+│   ├── data_engine.py    # Interface Central (Firebase Firestore & Storage)
+│   └── intelligence.py   # Motor Multi-IA (OCR, Vision, NLP)
+├── config/               # Credenciais de serviços (ex: Firebase)
+├── data/                 # Dados analíticos (Raw e Processed)
+├── notebooks/            # Notebooks Jupyter para P&D e experimentações
+├── requirements.txt      # Dependências do projeto Python
+├── app.py                # Front-end Streamlit de Alta Performance
+└── README.md             # Este arquivo
+```
+
+---
+
+# Rilen T. L. - DataScience
+
+**25+ anos em TI - Especialista em Big Data | IA | CyberSecurity**
+
+***Full Stack Development & Data Intelligence***
+
+Rio das Ostras · RJ · Brasil · PcD (Implante Coclear)
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/rilen/)
+[![Gmail](https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:rilen.lima@gmail.com)
+[![Portfólio](https://img.shields.io/badge/Portfólio-000000?style=for-the-badge&logo=githubpages&logoColor=white)](https://rilen.github.io/portfolio/)
+
+---
 # Rilen T. L. - DataScience
 
 **25+ anos em TI - Especialista em Big Data | IA | CyberSecurity**
