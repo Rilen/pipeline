@@ -133,17 +133,3 @@ Rio das Ostras · RJ · Brasil · PcD (Implante Coclear)
 [![Gmail](https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:rilen.lima@gmail.com)
 [![Portfólio](https://img.shields.io/badge/Portfólio-000000?style=for-the-badge&logo=githubpages&logoColor=white)](https://rilen.github.io/portfolio/)
 
----
-# Rilen T. L. - DataScience
-
-**25+ anos em TI - Especialista em Big Data | IA | CyberSecurity**
-
-***Full Stack Development & Data Intelligence***
-
-Rio das Ostras · RJ · Brasil · PcD (Implante Coclear)
-
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/rilen/)
-[![Gmail](https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:rilen.lima@gmail.com)
-[![Portfólio](https://img.shields.io/badge/Portfólio-000000?style=for-the-badge&logo=githubpages&logoColor=white)](https://rilen.github.io/portfolio/)
-
----
