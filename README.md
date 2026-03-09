@@ -1,7 +1,7 @@
 # 🚀 Analista IA PRO
 
 <div align="center">
-    <img src="docs/PipeDash.png" alt="Banner ou Screenshot do Projeto PipeDash" width="100%" max-width="800px">
+    <img src="docs/PipeDash.png" alt="Banner ou Screenshot do Projeto" width="100%" max-width="800px">
 </div>
 
 <br>
