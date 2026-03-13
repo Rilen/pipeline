@@ -204,17 +204,40 @@ if uploaded_file is not None:
              st.subheader("📋 Estrutura da Tabela")
              st.dataframe(df, use_container_width=True)
              
-             # Ação de Engenheiro: Ingestão
+             # Ação de Engenheiro: Ingestão e Exportação
              st.markdown("---")
-             if st.button("🚀 Commit de Dados para Firestore", use_container_width=True):
-                  with st.spinner("Subindo em lote..."):
-                       msg = db_interface.batch_upload_df(df, target_collection)
-                       st.success(msg)
-                       st.balloons()
+             ce1, ce2 = st.columns(2)
+             
+             with ce1:
+                  if st.button("🚀 Commit de Dados para Firestore", use_container_width=True):
+                       with st.spinner("Subindo em lote..."):
+                            msg = db_interface.batch_upload_df(df, target_collection)
+                            st.success(msg)
+                            st.balloons()
+             
+             with ce2:
+                  csv = df.to_csv(index=False).encode('utf-8-sig')
+                  st.download_button(
+                       label="📥 Exportar para CSV (Excel)",
+                       data=csv,
+                       file_name=f"analise_{uploaded_file.name.split('.')[0]}.csv",
+                       mime='text/csv',
+                       use_container_width=True
+                  )
         else:
              st.markdown('<div class="glass-card">', unsafe_allow_html=True)
              st.markdown("### Extração de Metadados Brutos")
              st.code(report[:5000] if report else "Vazio")
+             
+             if report:
+                  csv_report = f"Insight,Conteudo\nAnálise IA,\"{report.replace('\"', '\"\"')}\"".encode('utf-8-sig')
+                  st.download_button(
+                       label="📥 Exportar Relatório em CSV",
+                       data=csv_report,
+                       file_name=f"relatorio_{uploaded_file.name.split('.')[0]}.csv",
+                       mime='text/csv',
+                       use_container_width=True
+                  )
              st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Rodapé ---

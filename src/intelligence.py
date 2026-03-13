@@ -51,8 +51,11 @@ class IntelEngine:
             Responda em Markdown estruturado.
             """
             
-            # Ordem de tentativa
-            candidates = ['gemini-1.5-flash', 'gemini-flash-lite-latest', 'gemini-1.5-pro', 'gemini-flash-latest', 'gemini-2.0-flash']
+            # Ordem de tentativa expandida
+            candidates = [
+                'gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.0-flash', 
+                'gemini-flash-lite-latest', 'gemini-1.5-pro', 'gemini-flash-latest'
+            ]
             to_try = [m for m in candidates if m in self.available_gemini_models]
             
             if not to_try and self.available_gemini_models:
@@ -63,15 +66,51 @@ class IntelEngine:
                 try:
                     model = genai.GenerativeModel(model_name)
                     response = model.generate_content([prompt, img])
-                    return response.text, img
+                    return f"## 🤖 Insights IA (Gemini - {model_name})\n{response.text}", img
                 except Exception as e:
                     last_error = str(e)
-                    if "429" in last_error:
+                    if "429" in last_error or "quota" in last_error.lower():
                         print(f"⚠️ Modelo {model_name} sem cota (429). Tentando próximo...")
                         continue
                     break
             
-            return f"❌ Todos os modelos Gemini falharam ou estão sem cota. Erro final: {last_error}", None
+            # Fallback para Groq Vision se todos os Gemini falharem ou se não houver modelos Gemini
+            if self.groq_client:
+                try:
+                    print("🔄 Tentando fallback para Groq Vision...")
+                    # Groq espera a imagem em base64 ou bytes dependendo da versão, mas aqui usamos o padrão suportado
+                    # Nota: llama-3.2-11b-vision-preview é o modelo vision do Groq
+                    
+                    # Converte imagem para bytes para enviar ao Groq
+                    img_byte_arr = io.BytesIO()
+                    img.save(img_byte_arr, format='JPEG')
+                    img_bytes = img_byte_arr.getvalue()
+                    
+                    import base64
+                    base64_image = base64.b64encode(img_bytes).decode('utf-8')
+
+                    completion = self.groq_client.chat.completions.create(
+                        model="llama-3.2-11b-vision-preview",
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": prompt},
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": f"data:image/jpeg;base64,{base64_image}",
+                                        },
+                                    },
+                                ],
+                            }
+                        ],
+                    )
+                    return f"## 🤖 Insights IA (Groq Fallback - Llama Vision)\n{completion.choices[0].message.content}", img
+                except Exception as groq_err:
+                    last_error += f" | Groq Error: {str(groq_err)}"
+
+            return f"❌ Todos os modelos Gemini/Groq falharam ou estão sem cota. Erro final: {last_error}", None
             
         except Exception as e:
             return f"⚠️ Erro fatal no OCR: {str(e)}", None
@@ -82,10 +121,13 @@ class IntelEngine:
         """
         prompt = f"Analise este {context} e extraia 3 insights estratégicos curtos:\n\n{text[:8000]}"
         
-        # 1. Tentativa com Gemini
-        candidates = ['gemini-1.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash']
+        # 1. Tentativa com Gemini (Pool expandido)
+        candidates = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.0-flash', 'gemini-flash-latest']
         to_try = [m for m in candidates if m in self.available_gemini_models]
         
+        if not to_try and self.available_gemini_models:
+            to_try = [self.available_gemini_models[0]]
+
         for model_name in to_try:
             try:
                 model = genai.GenerativeModel(model_name)
