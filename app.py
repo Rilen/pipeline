@@ -240,23 +240,120 @@ if uploaded_file is not None:
                        st.plotly_chart(fig_pie, use_container_width=True)
                   else:
                        st.info("Sem dados categóricos para distribuição.")
+             # --- Dashboard Executivo (Grid Responsivo) ---
+             st.markdown("""
+             <style>
+             /* Container principal do dashboard */
+             .dashboard-grid {
+                 display: grid;
+                 grid-template-columns: repeat(3, 1fr);
+                 gap: 15px;
+                 margin-bottom: 20px;
+             }
+             
+             /* Responsividade: Celular (1 coluna) */
+             @media (max-width: 768px) {
+                 .dashboard-grid {
+                     grid-template-columns: 1fr;
+                 }
+             }
+             
+             /* Estilização dos Cards */
+             .metric-card {
+                 background: white;
+                 padding: 20px;
+                 border-radius: 12px;
+                 border: 1px solid #e2e8f0;
+                 box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+                 transition: transform 0.2s;
+             }
+             .metric-card:hover { transform: translateY(-2px); }
+             
+             /* Impressão: Manter grid se possível ou forçar 2 colunas */
+             @media print {
+                 .dashboard-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px; }
+                 .print-hide { display: none !important; }
+             }
+             </style>
+             """, unsafe_allow_html=True)
 
-             with g2:
-                  # Gráfico 2: Evolução ou Ranking
-                  if has_year and config['numeric_cols']:
-                       main_target = next((c for c in config['numeric_cols'] if c != year_col), config['numeric_cols'][0])
-                       fig_evol = px.line(df.sort_values(year_col), x=year_col, y=main_target, 
-                                        title=f"Série Temporal: {main_target.title()}",
-                                        template="plotly_white", markers=True)
-                       fig_evol.update_traces(line_color="#5145cd", line_width=3)
-                       st.plotly_chart(fig_evol, use_container_width=True)
-                  elif config['cat_cols'] and config['numeric_cols']:
+             # 1. KPIs em Grid (3 Colunas)
+             st.markdown('<div class="dashboard-grid">', unsafe_allow_html=True)
+             
+             # Card 1: Volumetria
+             st.markdown(f'''<div class="metric-card">
+                 <div style="color: #64748b; font-size: 0.9rem; font-weight: 600;">VOLUMETRIA</div>
+                 <div style="color: #1e293b; font-size: 1.8rem; font-weight: 700;">{config['num_records']:,}</div>
+                 <div style="color: #94a3b8; font-size: 0.8rem;">Registros Processados</div>
+             </div>''', unsafe_allow_html=True)
+             
+             # Card 2: Qualidade
+             st.markdown(f'''<div class="metric-card">
+                 <div style="color: #64748b; font-size: 0.9rem; font-weight: 600;">QUALIDADE DATA</div>
+                 <div style="color: #10b981; font-size: 1.8rem; font-weight: 700;">{config['completeness_score']:.1f}%</div>
+                 <div style="color: #94a3b8; font-size: 0.8rem;">Integridade de Preenchimento</div>
+             </div>''', unsafe_allow_html=True)
+             
+             # Card 3: Janelas
+             st.markdown(f'''<div class="metric-card">
+                 <div style="color: #64748b; font-size: 0.9rem; font-weight: 600;">AMPLITUDE</div>
+                 <div style="color: #5145cd; font-size: 1.8rem; font-weight: 700;">{len(config['cat_cols'] + config['numeric_cols'])}</div>
+                 <div style="color: #94a3b8; font-size: 0.8rem;">Indicadores Mapeados</div>
+             </div>''', unsafe_allow_html=True)
+             
+             st.markdown('</div>', unsafe_allow_html=True)
+
+             # 2. Seção de Gráficos Principais (3 Colunas na TV)
+             st.markdown('<div class="dashboard-grid">', unsafe_allow_html=True)
+             
+             #--- Espaço para Gráfico 1 ---
+             with st.container():
+                  st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                  if config['is_financial']:
+                       fig_fin = px.line(df.groupby('ano').sum().reset_index(), x='ano', 
+                                       y=['receita_total', 'despesa_total'],
+                                       title="💰 Fluxo Financeiro Anual", template="plotly_white")
+                       fig_fin.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40), legend=dict(orientation="h", y=-0.2))
+                       st.plotly_chart(fig_fin, use_container_width=True)
+                  elif config['numeric_cols']:
+                       fig_dist = px.histogram(df, x=config['numeric_cols'][0], 
+                                             title=f"📊 Distribuição: {config['numeric_cols'][0]}", 
+                                             template="plotly_white", color_discrete_sequence=['#5145cd'])
+                       fig_dist.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
+                       st.plotly_chart(fig_dist, use_container_width=True)
+                  st.markdown('</div>', unsafe_allow_html=True)
+
+             #--- Espaço para Gráfico 2 ---
+             with st.container():
+                  st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                  if config['is_financial']:
+                       df_balance = df.groupby('ano').sum().reset_index()
+                       df_balance['saldo'] = df_balance['receita_total'] - df_balance['despesa_total']
+                       fig_bal = px.bar(df_balance, x='ano', y='saldo', title="⚖️ Superávit/Déficit",
+                                      color='saldo', color_continuous_scale="RdYlGn", template="plotly_white")
+                       fig_bal.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
+                       st.plotly_chart(fig_bal, use_container_width=True)
+                  elif len(config['numeric_cols']) > 1:
+                       fig_scat = px.scatter(df, x=config['numeric_cols'][0], y=config['numeric_cols'][1],
+                                           title="🎯 Correlação Principal", template="plotly_white")
+                       fig_scat.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
+                       st.plotly_chart(fig_scat, use_container_width=True)
+                  st.markdown('</div>', unsafe_allow_html=True)
+
+             #--- Espaço para Gráfico 3 ---
+             with st.container():
+                  st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                  if config['cat_cols'] and config['numeric_cols']:
                        target = config['numeric_cols'][0]
                        cat = config['cat_cols'][0]
-                       df_rank = ds.calculate_group_averages(df, cat, target)
-                       fig_bar = px.bar(df_rank, x=cat, y=target, title=f"Ranking: {target} por {cat}",
+                       df_rank = ds.calculate_group_averages(df, cat, target).head(10)
+                       fig_bar = px.bar(df_rank, x=target, y=cat, orientation='h', title=f"🏆 Top 10 {cat}",
                                       color=target, template="plotly_white", color_continuous_scale="Viridis")
+                       fig_bar.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
                        st.plotly_chart(fig_bar, use_container_width=True)
+                  st.markdown('</div>', unsafe_allow_html=True)
+
+             st.markdown('</div>', unsafe_allow_html=True)
 
              # Linha Especial: Análise de Correlação ou Cruzamento
              st.markdown("### 🔍 Cruzamento Dinâmico de Indicadores")
