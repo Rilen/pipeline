@@ -127,7 +127,20 @@ if uploaded_file is not None:
                  try:
                       if file_type == 'xlsx': df = pd.read_excel(uploaded_file)
                       elif file_type == 'json': df = pd.read_json(uploaded_file)
-                      else: df = pd.read_csv(uploaded_file)
+                      else:
+                           # CSV Parsing Robusto (Suporta ;\t e decimais brasileiros)
+                           try:
+                                # Tenta primeiro com detecção automática e decimal em vírgula
+                                df = pd.read_csv(uploaded_file, sep=None, engine='python', decimal=',', encoding='utf-8-sig')
+                           except Exception:
+                                try:
+                                     # Fallback 1: Retorna ao início do stream e tenta com ponto decimal
+                                     uploaded_file.seek(0)
+                                     df = pd.read_csv(uploaded_file, sep=None, engine='python', encoding='utf-8-sig')
+                                except Exception:
+                                     # Fallback 2: Tenta encoding latin-1 (comum em arquivos Windows antigos)
+                                     uploaded_file.seek(0)
+                                     df = pd.read_csv(uploaded_file, sep=None, engine='python', encoding='latin-1')
                       
                       # Normalização/Limpeza (Engenharia de Software)
                       if enable_cleaning:
@@ -137,9 +150,9 @@ if uploaded_file is not None:
                       summary = f"Estrutura: {list(df.columns)}. Resumo Estatístico: {df.describe().to_string()}"
                       report = intel.analyze_document_text(summary, "planilha")
                  except Exception as e:
-                      st.error(f"Erro ao processar dados: {e}")
+                      st.error(f"Erro crítico no processamento de dados: {e}")
                       df = None
-                      report = "Erro fatal no parsing do arquivo."
+                      report = f"Erro fatal no parsing do arquivo: {str(e)}"
 
         status.update(label="✅ Análise concluída!", state="complete", expanded=False)
 
