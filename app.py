@@ -173,6 +173,7 @@ if uploaded_file is not None:
 
     with tab_viz:
         if df is not None:
+             config, stats = ds.generate_statistical_profile(df)
              # --- Estilo Específico para Impressão (Apenas via CSS) ---
              st.markdown("""
              <style>
