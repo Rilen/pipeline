@@ -365,23 +365,31 @@ if uploaded_file is not None:
                   # Novo: Seletor de Tipo Manual
                   chart_pref = st.segmented_control(
                        "Formato Visual:", 
-                       options=["Auto", "Barras", "Linhas", "Dispersão", "Distribuição"],
-                       default="Auto"
+                       options=["Auto", "Barras", "Linhas", "Dispersão", "Distribuição"]
                   )
                   st.markdown('</div>', unsafe_allow_html=True)
                   
-                  # Insights Automáticos (Simulado)
-                  st.info(f"O indicador **{y_axis}** apresenta variação de {((df[y_axis].max() - df[y_axis].min())/df[y_axis].min()*100):.1f}% entre os extremos.")
+                  # Insights Automáticos (Simulado com proteção ZeroDivision)
+                  min_val = df[y_axis].min()
+                  variation = ((df[y_axis].max() - min_val) / min_val * 100) if min_val != 0 else 0
+                  st.info(f"O indicador **{y_axis}** apresenta variação de {variation:.1f}% entre os extremos.")
 
              with c_col2:
                   # --- Lógica Semântica de Seleção de Gráfico ---
                   df_clean = df.copy()
+                  
+                  # Caso o usuário selecione o mesmo eixo, avisamos mas não quebramos
+                  if x_axis == y_axis:
+                       st.warning("⚠️ Selecione indicadores diferentes para X e Y para uma análise comparativa.")
+                  
                   if x_axis in config['cat_cols']:
                        df_clean[x_axis] = df_clean[x_axis].astype(str).str.strip()
                   
-                  df_plot = df_clean.groupby(x_axis)[y_axis].mean().reset_index()
+                  # Uso de as_index=False evita conflito de nomes no reset_index
+                  df_plot = df_clean.groupby(x_axis, as_index=False)[y_axis].mean()
                   
                   try:
+                       # Tenta converter X em numérico para ordenação correta (ex: anos)
                        df_plot[x_axis] = pd.to_numeric(df_plot[x_axis])
                        df_plot = df_plot.sort_values(x_axis)
                   except:
