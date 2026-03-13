@@ -77,11 +77,7 @@ class IntelEngine:
             # Fallback para Groq Vision se todos os Gemini falharem ou se não houver modelos Gemini
             if self.groq_client:
                 try:
-                    print("🔄 Tentando fallback para Groq Vision...")
-                    # Groq espera a imagem em base64 ou bytes dependendo da versão, mas aqui usamos o padrão suportado
-                    # Nota: llama-3.2-11b-vision-instruct é o modelo vision atual do Groq
-                    
-                    # Converte imagem para bytes para enviar ao Groq
+                    # Prepara a imagem para o Groq
                     img_byte_arr = io.BytesIO()
                     img.save(img_byte_arr, format='JPEG')
                     img_bytes = img_byte_arr.getvalue()
@@ -89,26 +85,46 @@ class IntelEngine:
                     import base64
                     base64_image = base64.b64encode(img_bytes).decode('utf-8')
 
-                    completion = self.groq_client.chat.completions.create(
-                        model="llama-3.2-11b-vision-instruct",
-                        messages=[
-                            {
-                                "role": "user",
-                                "content": [
-                                    {"type": "text", "text": prompt},
+                    # Fallback para Groq Vision (Pool de modelos para redundância)
+                    # O Groq frequentemente atualiza os IDs dos modelos
+                    groq_candidates = [
+                        "meta-llama/llama-4-scout-17b-16e-instruct", # Novo padrão Llama 4
+                        "llama-3.2-11b-vision-instruct",
+                        "llama-3.2-90b-vision-instruct"
+                    ]
+                    
+                    groq_last_error = ""
+                    for g_model in groq_candidates:
+                        try:
+                            print(f"🔄 Tentando Groq: {g_model}...")
+                            completion = self.groq_client.chat.completions.create(
+                                model=g_model,
+                                messages=[
                                     {
-                                        "type": "image_url",
-                                        "image_url": {
-                                            "url": f"data:image/jpeg;base64,{base64_image}",
-                                        },
-                                    },
+                                        "role": "user",
+                                        "content": [
+                                            {"type": "text", "text": prompt},
+                                            {
+                                                "type": "image_url",
+                                                "image_url": {
+                                                    "url": f"data:image/jpeg;base64,{base64_image}",
+                                                },
+                                            },
+                                        ],
+                                    }
                                 ],
-                            }
-                        ],
-                    )
-                    return f"## 🤖 Insights IA (Groq Fallback - Llama Vision)\n{completion.choices[0].message.content}", img
+                            )
+                            return f"## 🤖 Insights IA (Groq Fallback - {g_model})\n{completion.choices[0].message.content}", img
+                        except Exception as e:
+                            groq_last_error = str(e)
+                            print(f"⚠️ Erro no modelo Groq {g_model}: {groq_last_error}")
+                            if "404" in groq_last_error or "not found" in groq_last_error.lower() or "decommissioned" in groq_last_error.lower():
+                                continue
+                            break
+                    
+                    last_error += f" | Groq Fallback Failed: {groq_last_error}"
                 except Exception as groq_err:
-                    last_error += f" | Groq Error: {str(groq_err)}"
+                    last_error += f" | Groq Critical Error: {str(groq_err)}"
 
             return f"❌ Todos os modelos Gemini/Groq falharam ou estão sem cota. Erro final: {last_error}", None
             
