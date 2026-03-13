@@ -12,13 +12,18 @@ class DataScientist:
         """
         Perfil completo dos dados (KPIs, Nulos, Médias etc).
         """
+        # Detecção de Dados Financeiros
+        financial_keywords = ['receita', 'despesa', 'valor', 'preco', 'total', 'revenue', 'expense', 'price', 'custo', 'venda']
+        is_financial = any(any(kw in col.lower() for kw in financial_keywords) for col in df.columns)
+
         config = {
             "num_records": len(df),
             "num_columns": len(df.columns),
             "missing_data_pct": df.isnull().mean().mean() * 100,
             "completeness_score": (1 - df.isnull().mean().mean()) * 100,
             "numeric_cols": df.select_dtypes(include=['number']).columns.tolist(),
-            "cat_cols": df.select_dtypes(include=['object', 'category']).columns.tolist()
+            "cat_cols": df.select_dtypes(include=['object', 'category']).columns.tolist(),
+            "is_financial": is_financial
         }
         
         # Estatísticas descritivas (Top 3 métricas)

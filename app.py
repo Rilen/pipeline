@@ -290,36 +290,48 @@ if uploaded_file is not None:
              st.markdown('</div>', unsafe_allow_html=True)
 
              # 2. Seção de Gráficos Principais (3 Colunas na TV)
-             st.markdown('<div class="dashboard-grid">', unsafe_allow_html=True)
-             
-             #--- Espaço para Gráfico 1 ---
+             # --- Espaço para Gráfico 1 ---
              with st.container():
                   st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                  if config['is_financial']:
-                       fig_fin = px.line(df.groupby('ano').sum().reset_index(), x='ano', 
-                                       y=['receita_total', 'despesa_total'],
-                                       title="💰 Fluxo Financeiro Anual", template="plotly_white")
+                  # Detecção robusta de colunas para gráficos financeiros
+                  cols_lower = [c.lower() for c in df.columns]
+                  has_fin_cols = 'receita_total' in cols_lower and 'despesa_total' in cols_lower and 'ano' in cols_lower
+                  
+                  if config.get('is_financial') and has_fin_cols:
+                       # Ajusta para o nome exato da coluna (case-sensitive)
+                       y_cols = [c for c in df.columns if c.lower() in ['receita_total', 'despesa_total']]
+                       x_col = next(c for c in df.columns if c.lower() == 'ano')
+                       
+                       fig_fin = px.line(df.groupby(x_col).sum().reset_index(), x=x_col, 
+                                       y=y_cols, title="💰 Fluxo Financeiro Anual", template="plotly_white")
                        fig_fin.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40), legend=dict(orientation="h", y=-0.2))
                        st.plotly_chart(fig_fin, use_container_width=True)
-                  elif config['numeric_cols']:
-                       fig_dist = px.histogram(df, x=config['numeric_cols'][0], 
-                                             title=f"📊 Distribuição: {config['numeric_cols'][0]}", 
+                  elif config.get('numeric_cols'):
+                       target = config['numeric_cols'][0]
+                       fig_dist = px.histogram(df, x=target, 
+                                             title=f"📊 Distribuição: {target}", 
                                              template="plotly_white", color_discrete_sequence=['#5145cd'])
                        fig_dist.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
                        st.plotly_chart(fig_dist, use_container_width=True)
                   st.markdown('</div>', unsafe_allow_html=True)
 
-             #--- Espaço para Gráfico 2 ---
+             # --- Espaço para Gráfico 2 ---
              with st.container():
                   st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                  if config['is_financial']:
-                       df_balance = df.groupby('ano').sum().reset_index()
-                       df_balance['saldo'] = df_balance['receita_total'] - df_balance['despesa_total']
-                       fig_bal = px.bar(df_balance, x='ano', y='saldo', title="⚖️ Superávit/Déficit",
+                  if config.get('is_financial') and has_fin_cols:
+                       # Balanço de Saldo
+                       x_col = next(c for c in df.columns if c.lower() == 'ano')
+                       r_col = next(c for c in df.columns if c.lower() == 'receita_total')
+                       d_col = next(c for c in df.columns if c.lower() == 'despesa_total')
+                       
+                       df_balance = df.groupby(x_col).sum().reset_index()
+                       df_balance['saldo'] = df_balance[r_col] - df_balance[d_col]
+                       
+                       fig_bal = px.bar(df_balance, x=x_col, y='saldo', title="⚖️ Superávit/Déficit",
                                       color='saldo', color_continuous_scale="RdYlGn", template="plotly_white")
                        fig_bal.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
                        st.plotly_chart(fig_bal, use_container_width=True)
-                  elif len(config['numeric_cols']) > 1:
+                  elif len(config.get('numeric_cols', [])) > 1:
                        fig_scat = px.scatter(df, x=config['numeric_cols'][0], y=config['numeric_cols'][1],
                                            title="🎯 Correlação Principal", template="plotly_white")
                        fig_scat.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
