@@ -79,7 +79,7 @@ class IntelEngine:
                 try:
                     print("🔄 Tentando fallback para Groq Vision...")
                     # Groq espera a imagem em base64 ou bytes dependendo da versão, mas aqui usamos o padrão suportado
-                    # Nota: llama-3.2-11b-vision-preview é o modelo vision do Groq
+                    # Nota: llama-3.2-11b-vision-instruct é o modelo vision atual do Groq
                     
                     # Converte imagem para bytes para enviar ao Groq
                     img_byte_arr = io.BytesIO()
@@ -90,7 +90,7 @@ class IntelEngine:
                     base64_image = base64.b64encode(img_bytes).decode('utf-8')
 
                     completion = self.groq_client.chat.completions.create(
-                        model="llama-3.2-11b-vision-preview",
+                        model="llama-3.2-11b-vision-instruct",
                         messages=[
                             {
                                 "role": "user",
