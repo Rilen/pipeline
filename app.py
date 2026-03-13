@@ -204,23 +204,9 @@ if uploaded_file is not None:
 
              # --- CONTAINER DO RELATÓRIO EXECUTIVO ---
              st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-             st.markdown(f"## 📑 Relatório Executivo de Dados: {uploaded_file.name}")
-             st.caption(f"Gerado em {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M')}")
+             st.markdown(f"## 📑 Dashboard de Performance Digital: {uploaded_file.name}")
+             st.caption(f"Análise processada em {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M')}")
              
-             # Linha 1: KPIs Principais (Resumo do Dashboard)
-             k1, k2, k3, k4 = st.columns(4)
-             k1.metric("Volumetria", f"{config['num_records']:,} registros")
-             k2.metric("Confiabilidade", f"{100 - config['missing_data']:.1f}%")
-             k3.metric("Dimensões", f"{len(config['numeric_cols'])} Num / {len(config['cat_cols'])} Cat")
-             
-             # KPI Dinâmico de Performance
-             if config['numeric_cols']:
-                  main_val = config['numeric_cols'][0]
-                  avg_val = df[main_val].mean()
-                  k4.metric(f"Média ({main_val})", f"{avg_val:,.2f}")
-             
-             st.markdown("---")
-
              # --- GRID DE VISUALIZAÇÃO MULTIDIMENSIONAL ---
              cols = df.columns.tolist()
              has_year = any(word in [c.lower() for c in cols] for word in ['ano', 'year', 'data', 'date'])
