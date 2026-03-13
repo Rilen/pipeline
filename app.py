@@ -181,33 +181,64 @@ if uploaded_file is not None:
              k2.metric("Qualidade", f"{100 - config['missing_data']:.1f}%")
              k3.metric("Numéricas", len(config['numeric_cols']))
              k4.metric("Texto", len(config['cat_cols']))
+             # --- Dashboard Inteligente ---
+             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+             st.subheader("🎯 Análise de Tendências e Performance")
              
-             st.markdown("---")
+             # Detecção Automática de Contexto Financeiro
+             cols = df.columns.tolist()
+             has_year = 'ano' in cols or 'year' in cols
+             has_revenue = 'receita_total' in cols
+             has_expense = 'despesa_total' in cols
              
-             # Gráficos
-             g1, g2 = st.columns(2)
+             if has_year and has_revenue and has_expense:
+                  # Gráfico 1: Evolução Comparativa (Linhas)
+                  fig_evol = go.Figure()
+                  fig_evol.add_trace(go.Scatter(x=df['ano'], y=df['receita_total'], name="Receita Total", line=dict(color='#2dd4bf', width=4)))
+                  fig_evol.add_trace(go.Scatter(x=df['ano'], y=df['despesa_total'], name="Despesa Total", line=dict(color='#5145cd', width=4)))
+                  fig_evol.update_layout(title="Evolução de Receitas e Despesas", template="plotly_white", hovermode="x unified")
+                  st.plotly_chart(fig_evol, use_container_width=True)
+                  
+                  # Gráfico 2: Saldo Anual (Barras)
+                  df['saldo'] = df['receita_total'] - df['despesa_total']
+                  fig_saldo = px.bar(df, x='ano', y='saldo', title="Saldo Anual (Receita - Despesa)",
+                                   color='saldo', color_continuous_scale=['#f43f5e', '#10b981'],
+                                   template="plotly_white")
+                  st.plotly_chart(fig_saldo, use_container_width=True)
              
-             with g1:
-                  if config['cat_cols']:
-                       sel_cat = st.selectbox("Categorizar por:", config['cat_cols'])
-                       fig_pie = px.pie(df, names=sel_cat, hole=0.5, template="plotly_white",
-                                     title=f"Mix Geográfico/Setorial: {sel_cat}",
-                                     color_discrete_sequence=px.colors.qualitative.Pastel)
-                       st.plotly_chart(fig_pie, use_container_width=True)
-                  else:
-                       st.info("Nenhuma categoria detectada.")
-
-             with g2:
-                  if config['numeric_cols']:
-                       y_val = st.selectbox("Analisar Valor de:", config['numeric_cols'])
+             # Fallback para Gráficos Genéricos (se não for financeiro temporal)
+             else:
+                  g1, g2 = st.columns(2)
+                  with g1:
                        if config['cat_cols']:
-                            df_grouped = ds.calculate_group_averages(df, config['cat_cols'][0], y_val)
-                            fig_bar = px.bar(df_grouped, x=config['cat_cols'][0], y=y_val, 
-                                          title=f"Ranking: {y_val} por {config['cat_cols'][0]}",
-                                          template="plotly_white", color=y_val)
-                            st.plotly_chart(fig_bar, use_container_width=True)
+                            sel_cat = st.selectbox("Categorizar por:", config['cat_cols'])
+                            fig_pie = px.pie(df, names=sel_cat, hole=0.5, template="plotly_white",
+                                          title=f"Distribuição: {sel_cat}",
+                                          color_discrete_sequence=px.colors.qualitative.Pastel)
+                            st.plotly_chart(fig_pie, use_container_width=True)
                        else:
-                            st.line_chart(df[y_val])
+                            st.info("Nenhuma categoria detectada para gráfico de setores.")
+
+                  with g2:
+                       if config['numeric_cols']:
+                            # Remove 'ano' do selectbox para evitar gráficos planos
+                            plot_cols = [c for c in config['numeric_cols'] if c not in ['ano', 'year', 'id', 'index']]
+                            if not plot_cols: plot_cols = config['numeric_cols']
+                            
+                            y_val = st.selectbox("Analisar Valor de:", plot_cols)
+                            
+                            if has_year:
+                                 fig_line = px.line(df, x='ano', y=y_val, title=f"Tendência de {y_val}", template="plotly_white")
+                                 st.plotly_chart(fig_line, use_container_width=True)
+                            elif config['cat_cols']:
+                                 df_grouped = ds.calculate_group_averages(df, config['cat_cols'][0], y_val)
+                                 fig_bar = px.bar(df_grouped, x=config['cat_cols'][0], y=y_val, 
+                                               title=f"Média de {y_val} por {config['cat_cols'][0]}",
+                                               template="plotly_white", color=y_val)
+                                 st.plotly_chart(fig_bar, use_container_width=True)
+                            else:
+                                 st.line_chart(df[y_val])
+             st.markdown('</div>', unsafe_allow_html=True)
 
         else:
              st.info("A visualização gráfica automática está disponível apenas para planilhas e JSONs.")
