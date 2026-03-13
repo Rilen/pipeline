@@ -419,14 +419,24 @@ if uploaded_file is not None:
                        fig_dyn = px.area(df_plot, x=x_axis, y=y_axis, title=f"Tendência: {y_axis}",
                                        template="plotly_white", line_shape="spline")
                        fig_dyn.update_traces(line_color="#5145cd", fillcolor="rgba(81, 69, 205, 0.2)")
-
-                  elif final_type == "Distribuição":
-                       fig_dyn = px.box(df_clean, x=x_axis, y=y_axis, title=f"Distribuição: {y_axis} por {x_axis}",
-                                      template="plotly_white", color=x_axis)
-
                   else: # Dispersão
-                       fig_dyn = px.scatter(df_clean, x=x_axis, y=y_axis, trendline="ols", 
-                                          title=f"Correlação: {x_axis} vs {y_axis}", template="plotly_white")
+                       # Tenta usar trendline apenas se statsmodels estiver instalado
+                       has_stats = True
+                       try:
+                            import statsmodels
+                       except ImportError:
+                            has_stats = False
+                       
+                       if has_stats:
+                            fig_dyn = px.scatter(df_clean, x=x_axis, y=y_axis, trendline="ols", 
+                                               title=f"Análise de Tendência: {x_axis} vs {y_axis}", 
+                                               template="plotly_white")
+                       else:
+                            fig_dyn = px.scatter(df_clean, x=x_axis, y=y_axis, 
+                                               title=f"Correlação: {x_axis} vs {y_axis} (Sem Trendline)", 
+                                               template="plotly_white")
+                            st.warning("⚠️ Instale 'statsmodels' para ver a linha de tendência estatística.")
+                       
                        fig_dyn.update_traces(marker=dict(size=12, color='#5145cd'))
 
                   fig_dyn.update_layout(height=450, margin=dict(l=20, r=20, t=50, b=20), showlegend=False)

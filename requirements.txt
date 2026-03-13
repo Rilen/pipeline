@@ -12,6 +12,7 @@ google-cloud-storage
 matplotlib
 seaborn
 plotly
+statsmodels
 
 # Machine Learning & Modeling
 scikit-learn
