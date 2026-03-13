@@ -272,13 +272,45 @@ if uploaded_file is not None:
                   st.info(f"O indicador **{y_axis}** apresenta variação de {((df[y_axis].max() - df[y_axis].min())/df[y_axis].min()*100):.1f}% entre os extremos.")
 
              with c_col2:
-                  if x_axis in config['cat_cols']:
-                       fig_box = px.box(df, x=x_axis, y=y_axis, title=f"Dispersão: {y_axis} por {x_axis}", 
-                                      points="all", template="plotly_white", color=x_axis)
+                  # --- Lógica Semântica de Seleção de Gráfico ---
+                  # 1. Caso seja Série Temporal (Ano/Data)
+                  is_time = any(w in x_axis.lower() for w in ['ano', 'year', 'data', 'date', 'mês', 'month'])
+                  
+                  if is_time:
+                       # Se tiver poucos pontos, barras. Se tiver muitos, linha/área.
+                       if df[x_axis].nunique() < 8:
+                            fig_dyn = px.bar(df.groupby(x_axis)[y_axis].sum().reset_index(), 
+                                           x=x_axis, y=y_axis, title=f"Total de {y_axis} por {x_axis}",
+                                           template="plotly_white", color=y_axis, color_continuous_scale="Viridis")
+                       else:
+                            fig_dyn = px.area(df.sort_values(x_axis), x=x_axis, y=y_axis, 
+                                            title=f"Tendência Temporal: {y_axis}",
+                                            template="plotly_white", line_shape="spline")
+                            fig_dyn.update_traces(line_color="#5145cd", fillcolor="rgba(81, 69, 205, 0.1)")
+
+                  # 2. Caso seja Categórico (Ranking/Distribuição)
+                  elif x_axis in config['cat_cols']:
+                       # Se tiver muitas categorias, um ranking de barras é melhor que BoxPlot
+                       if df[x_axis].nunique() > 5:
+                            df_agg = df.groupby(x_axis)[y_axis].mean().reset_index().sort_values(y_axis, ascending=False)
+                            fig_dyn = px.bar(df_agg, x=y_axis, y=x_axis, orientation='h',
+                                           title=f"Ranking de Média: {y_axis} por {x_axis}",
+                                           template="plotly_white", color=y_axis, color_continuous_scale="Viridis")
+                       else:
+                            # Poucas categorias? Boxplot limpo
+                            fig_dyn = px.box(df, x=x_axis, y=y_axis, title=f"Distribuição de {y_axis} por {x_axis}",
+                                           template="plotly_white", color=x_axis, color_discrete_sequence=px.colors.qualitative.Safe)
+
+                  # 3. Caso seja Numérico vs Numérico (Correlação)
                   else:
-                       fig_box = px.scatter(df, x=x_axis, y=y_axis, trendline="ols", 
-                                          title=f"Correlação Corretiva: {x_axis} vs {y_axis}", template="plotly_white")
-                  st.plotly_chart(fig_box, use_container_width=True)
+                       fig_dyn = px.scatter(df, x=x_axis, y=y_axis, trendline="ols", 
+                                          title=f"Análise de Correlação: {x_axis} vs {y_axis}", 
+                                          template="plotly_white", opacity=0.7)
+                       fig_dyn.update_traces(marker=dict(size=10, color='#5145cd'))
+
+                  # Estética final comum
+                  fig_dyn.update_layout(margin=dict(l=20, r=20, t=50, b=20), showlegend=False if is_time else True)
+                  st.plotly_chart(fig_dyn, use_container_width=True)
 
              st.markdown('</div>', unsafe_allow_html=True)
 
