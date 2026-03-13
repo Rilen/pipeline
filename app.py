@@ -173,71 +173,110 @@ if uploaded_file is not None:
 
     with tab_viz:
         if df is not None:
-             config, stats = ds.generate_statistical_profile(df)
-             
-             # KPIs
-             k1, k2, k3, k4 = st.columns(4)
-             k1.metric("Registros", f"{config['num_records']:,}")
-             k2.metric("Qualidade", f"{100 - config['missing_data']:.1f}%")
-             k3.metric("Numéricas", len(config['numeric_cols']))
-             k4.metric("Texto", len(config['cat_cols']))
-             # --- Dashboard Inteligente ---
-             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-             st.subheader("🎯 Análise de Tendências e Performance")
-             
-             # Detecção Automática de Contexto Financeiro
-             cols = df.columns.tolist()
-             has_year = 'ano' in cols or 'year' in cols
-             has_revenue = 'receita_total' in cols
-             has_expense = 'despesa_total' in cols
-             
-             if has_year and has_revenue and has_expense:
-                  # Gráfico 1: Evolução Comparativa (Linhas)
-                  fig_evol = go.Figure()
-                  fig_evol.add_trace(go.Scatter(x=df['ano'], y=df['receita_total'], name="Receita Total", line=dict(color='#2dd4bf', width=4)))
-                  fig_evol.add_trace(go.Scatter(x=df['ano'], y=df['despesa_total'], name="Despesa Total", line=dict(color='#5145cd', width=4)))
-                  fig_evol.update_layout(title="Evolução de Receitas e Despesas", template="plotly_white", hovermode="x unified")
-                  st.plotly_chart(fig_evol, use_container_width=True)
-                  
-                  # Gráfico 2: Saldo Anual (Barras)
-                  df['saldo'] = df['receita_total'] - df['despesa_total']
-                  fig_saldo = px.bar(df, x='ano', y='saldo', title="Saldo Anual (Receita - Despesa)",
-                                   color='saldo', color_continuous_scale=['#f43f5e', '#10b981'],
-                                   template="plotly_white")
-                  st.plotly_chart(fig_saldo, use_container_width=True)
-             
-             # Fallback para Gráficos Genéricos (se não for financeiro temporal)
-             else:
-                  g1, g2 = st.columns(2)
-                  with g1:
-                       if config['cat_cols']:
-                            sel_cat = st.selectbox("Categorizar por:", config['cat_cols'])
-                            fig_pie = px.pie(df, names=sel_cat, hole=0.5, template="plotly_white",
-                                          title=f"Distribuição: {sel_cat}",
-                                          color_discrete_sequence=px.colors.qualitative.Pastel)
-                            st.plotly_chart(fig_pie, use_container_width=True)
-                       else:
-                            st.info("Nenhuma categoria detectada para gráfico de setores.")
+             # --- Estilo Específico para Impressão (Apenas via CSS) ---
+             st.markdown("""
+             <style>
+                 @media print {
+                     .stApp { background: white !important; }
+                     .glass-card { 
+                         border: 2px solid #eee !important; 
+                         box-shadow: none !important; 
+                         break-inside: avoid !important;
+                         margin-bottom: 30px !important;
+                         background: white !important;
+                     }
+                     .stPlotlyChart { break-inside: avoid !important; }
+                     [data-testid="stSidebar"], [data-testid="stHeader"], .stTabs button { display: none !important; }
+                     .print-hide { display: none !important; }
+                     h1, h2, h3 { color: black !important; }
+                 }
+             </style>
+             """, unsafe_allow_html=True)
 
-                  with g2:
-                       if config['numeric_cols']:
-                            # Remove 'ano' do selectbox para evitar gráficos planos
-                            plot_cols = [c for c in config['numeric_cols'] if c not in ['ano', 'year', 'id', 'index']]
-                            if not plot_cols: plot_cols = config['numeric_cols']
-                            
-                            y_val = st.selectbox("Analisar Valor de:", plot_cols)
-                            
-                            if has_year:
-                                 fig_line = px.line(df, x='ano', y=y_val, title=f"Tendência de {y_val}", template="plotly_white")
-                                 st.plotly_chart(fig_line, use_container_width=True)
-                            elif config['cat_cols']:
-                                 df_grouped = ds.calculate_group_averages(df, config['cat_cols'][0], y_val)
-                                 fig_bar = px.bar(df_grouped, x=config['cat_cols'][0], y=y_val, 
-                                               title=f"Média de {y_val} por {config['cat_cols'][0]}",
-                                               template="plotly_white", color=y_val)
-                                 st.plotly_chart(fig_bar, use_container_width=True)
-                            else:
-                                 st.line_chart(df[y_val])
+             # Botão de Impressão (Visual apenas na Web)
+             st.markdown('<div class="print-hide" style="text-align: right;">', unsafe_allow_html=True)
+             if st.button("🖨️ Gerar PDF / Imprimir Relatório"):
+                  st.info("💡 Dica: Use Ctrl+P no navegador e selecione 'Salvar como PDF' para exportar este relatório.")
+             st.markdown('</div>', unsafe_allow_html=True)
+
+             # --- CONTAINER DO RELATÓRIO EXECUTIVO ---
+             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+             st.markdown(f"## 📑 Relatório Executivo de Dados: {uploaded_file.name}")
+             st.caption(f"Gerado em {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M')}")
+             
+             # Linha 1: KPIs Principais (Resumo do Dashboard)
+             k1, k2, k3, k4 = st.columns(4)
+             k1.metric("Volumetria", f"{config['num_records']:,} registros")
+             k2.metric("Confiabilidade", f"{100 - config['missing_data']:.1f}%")
+             k3.metric("Dimensões", f"{len(config['numeric_cols'])} Num / {len(config['cat_cols'])} Cat")
+             
+             # KPI Dinâmico de Performance
+             if config['numeric_cols']:
+                  main_val = config['numeric_cols'][0]
+                  avg_val = df[main_val].mean()
+                  k4.metric(f"Média ({main_val})", f"{avg_val:,.2f}")
+             
+             st.markdown("---")
+
+             # --- GRID DE VISUALIZAÇÃO MULTIDIMENSIONAL ---
+             cols = df.columns.tolist()
+             has_year = any(word in [c.lower() for c in cols] for word in ['ano', 'year', 'data', 'date'])
+             year_col = next((c for c in cols if c.lower() in ['ano', 'year']), None)
+
+             # Área Principal de Gráficos (Grid 2x2 ou 1x2)
+             g1, g2 = st.columns(2)
+
+             with g1:
+                  # Gráfico 1: Distribuição Geográfica/Setorial
+                  if config['cat_cols']:
+                       # Escolhe a categoria com cardinalidade razoável (nem 1 nem mil)
+                       best_cat = next((c for c in config['cat_cols'] if 1 < df[c].nunique() < 15), config['cat_cols'][0])
+                       fig_pie = px.pie(df, names=best_cat, hole=0.4, title=f"Mix por {best_cat.title()}",
+                                     template="plotly_white", color_discrete_sequence=px.colors.qualitative.G10)
+                       fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.2))
+                       st.plotly_chart(fig_pie, use_container_width=True)
+                  else:
+                       st.info("Sem dados categóricos para distribuição.")
+
+             with g2:
+                  # Gráfico 2: Evolução ou Ranking
+                  if has_year and config['numeric_cols']:
+                       main_target = next((c for c in config['numeric_cols'] if c != year_col), config['numeric_cols'][0])
+                       fig_evol = px.line(df.sort_values(year_col), x=year_col, y=main_target, 
+                                        title=f"Série Temporal: {main_target.title()}",
+                                        template="plotly_white", markers=True)
+                       fig_evol.update_traces(line_color="#5145cd", line_width=3)
+                       st.plotly_chart(fig_evol, use_container_width=True)
+                  elif config['cat_cols'] and config['numeric_cols']:
+                       target = config['numeric_cols'][0]
+                       cat = config['cat_cols'][0]
+                       df_rank = ds.calculate_group_averages(df, cat, target)
+                       fig_bar = px.bar(df_rank, x=cat, y=target, title=f"Ranking: {target} por {cat}",
+                                      color=target, template="plotly_white", color_continuous_scale="Viridis")
+                       st.plotly_chart(fig_bar, use_container_width=True)
+
+             # Linha Especial: Análise de Correlação ou Cruzamento
+             st.markdown("### 🔍 Cruzamento Dinâmico de Indicadores")
+             c_col1, c_col2 = st.columns([1, 2])
+             
+             with c_col1:
+                  st.markdown('<div class="print-hide">', unsafe_allow_html=True)
+                  x_axis = st.selectbox("Eixo X (Relatório):", config['cat_cols'] + config['numeric_cols'] if config['cat_cols'] else config['numeric_cols'], index=0)
+                  y_axis = st.selectbox("Eixo Y (Relatório):", config['numeric_cols'], index=min(1, len(config['numeric_cols'])-1))
+                  st.markdown('</div>', unsafe_allow_html=True)
+                  
+                  # Insights Automáticos (Simulado)
+                  st.info(f"O indicador **{y_axis}** apresenta variação de {((df[y_axis].max() - df[y_axis].min())/df[y_axis].min()*100):.1f}% entre os extremos.")
+
+             with c_col2:
+                  if x_axis in config['cat_cols']:
+                       fig_box = px.box(df, x=x_axis, y=y_axis, title=f"Dispersão: {y_axis} por {x_axis}", 
+                                      points="all", template="plotly_white", color=x_axis)
+                  else:
+                       fig_box = px.scatter(df, x=x_axis, y=y_axis, trendline="ols", 
+                                          title=f"Correlação Corretiva: {x_axis} vs {y_axis}", template="plotly_white")
+                  st.plotly_chart(fig_box, use_container_width=True)
+
              st.markdown('</div>', unsafe_allow_html=True)
 
         else:
