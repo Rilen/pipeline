@@ -283,21 +283,21 @@ if uploaded_file is not None:
              # Card 1: Volumetria
              st.markdown(f'''<div class="metric-card">
                  <div style="color: #64748b; font-size: 0.9rem; font-weight: 600;">VOLUMETRIA</div>
-                 <div style="color: #1e293b; font-size: 1.8rem; font-weight: 700;">{config['num_records']:,}</div>
+                 <div style="color: #1e293b; font-size: 1.8rem; font-weight: 700;">{config.get('num_records', 0):,}</div>
                  <div style="color: #94a3b8; font-size: 0.8rem;">Registros Processados</div>
              </div>''', unsafe_allow_html=True)
              
              # Card 2: Qualidade
              st.markdown(f'''<div class="metric-card">
                  <div style="color: #64748b; font-size: 0.9rem; font-weight: 600;">QUALIDADE DATA</div>
-                 <div style="color: #10b981; font-size: 1.8rem; font-weight: 700;">{config['completeness_score']:.1f}%</div>
+                 <div style="color: #10b981; font-size: 1.8rem; font-weight: 700;">{config.get('completeness_score', 100):.1f}%</div>
                  <div style="color: #94a3b8; font-size: 0.8rem;">Integridade de Preenchimento</div>
              </div>''', unsafe_allow_html=True)
              
              # Card 3: Janelas
              st.markdown(f'''<div class="metric-card">
                  <div style="color: #64748b; font-size: 0.9rem; font-weight: 600;">AMPLITUDE</div>
-                 <div style="color: #5145cd; font-size: 1.8rem; font-weight: 700;">{len(config['cat_cols'] + config['numeric_cols'])}</div>
+                 <div style="color: #5145cd; font-size: 1.8rem; font-weight: 700;">{len(config.get('cat_cols', []) + config.get('numeric_cols', []))}</div>
                  <div style="color: #94a3b8; font-size: 0.8rem;">Indicadores Mapeados</div>
              </div>''', unsafe_allow_html=True)
              

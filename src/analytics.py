@@ -15,7 +15,8 @@ class DataScientist:
         config = {
             "num_records": len(df),
             "num_columns": len(df.columns),
-            "missing_data": df.isnull().mean().mean() * 100,
+            "missing_data_pct": df.isnull().mean().mean() * 100,
+            "completeness_score": (1 - df.isnull().mean().mean()) * 100,
             "numeric_cols": df.select_dtypes(include=['number']).columns.tolist(),
             "cat_cols": df.select_dtypes(include=['object', 'category']).columns.tolist()
         }
