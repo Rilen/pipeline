@@ -105,6 +105,8 @@ with col_u2:
 # --- Fluxo de Processamento Inteligente ---
 if uploaded_file is not None:
     file_type = uploaded_file.name.split('.')[-1].lower()
+    df = None
+    config = None
     
     with st.status("🧠 Engine processando análise estratégica...", expanded=True) as status:
         
