@@ -217,14 +217,14 @@ if uploaded_file is not None:
 
              with g1:
                   # Gráfico 1: Distribuição Geográfica/Setorial
-                  if config['cat_cols']:
-                       # Escolhe a categoria com cardinalidade razoável (nem 1 nem mil)
-                       best_cat = next((c for c in config['cat_cols'] if 1 < df[c].nunique() < 15), config['cat_cols'][0])
-                       fig_pie = px.pie(df, names=best_cat, hole=0.4, title=f"Mix por {best_cat.title()}",
-                                     template="plotly_white", color_discrete_sequence=px.colors.qualitative.G10)
-                       fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.2))
-                       st.plotly_chart(fig_pie, use_container_width=True)
-                  else:
+                   if config.get('cat_cols'):
+                        # Escolhe a categoria com cardinalidade razoável (nem 1 nem mil)
+                        best_cat = next((c for c in config.get('cat_cols') if 1 < df[c].nunique() < 15), config.get('cat_cols')[0])
+                        fig_pie = px.pie(df, names=best_cat, hole=0.4, title=f"Mix por {best_cat.title()}",
+                                      template="plotly_white", color_discrete_sequence=px.colors.qualitative.G10)
+                        fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.2))
+                        st.plotly_chart(fig_pie, use_container_width=True)
+                   else:
                        st.info("Sem dados categóricos para distribuição.")
              # --- Dashboard Executivo (Grid Responsivo) ---
              st.markdown("""
@@ -293,41 +293,43 @@ if uploaded_file is not None:
              # --- Espaço para Gráfico 1 ---
              with st.container():
                   st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                  # Detecção robusta de colunas para gráficos financeiros
-                  cols_lower = [c.lower() for c in df.columns]
-                  has_fin_cols = 'receita_total' in cols_lower and 'despesa_total' in cols_lower and 'ano' in cols_lower
                   
-                  if config.get('is_financial') and has_fin_cols:
-                       # Ajusta para o nome exato da coluna (case-sensitive)
-                       y_cols = [c for c in df.columns if c.lower() in ['receita_total', 'despesa_total']]
-                       x_col = next(c for c in df.columns if c.lower() == 'ano')
+                  # Detecção flexível de colunas
+                  cols_lower = [c.lower() for c in df.columns]
+                  # Procura por colunas que contenham termos financeiros
+                  fin_receita = next((c for c in df.columns if 'receita' in c.lower() or 'revenue' in c.lower()), None)
+                  fin_despesa = next((c for c in df.columns if 'despesa' in c.lower() or 'expense' in c.lower() or 'custo' in c.lower()), None)
+                  fin_tempo = next((c for c in df.columns if c.lower() in ['ano', 'mes', 'data', 'date', 'year']), None)
+                  
+                  if config.get('is_financial') and fin_tempo and (fin_receita or fin_despesa):
+                       y_cols = [c for c in [fin_receita, fin_despesa] if c]
                        
-                       fig_fin = px.line(df.groupby(x_col).sum().reset_index(), x=x_col, 
-                                       y=y_cols, title="💰 Fluxo Financeiro Anual", template="plotly_white")
+                       # Agrupa por tempo se for numérico (ex: ano) ou data
+                       df_plot_fin = df.groupby(fin_tempo)[y_cols].sum().reset_index()
+                       
+                       fig_fin = px.line(df_plot_fin, x=fin_tempo, y=y_cols, 
+                                       title="💰 Fluxo Financeiro Temporal", template="plotly_white")
                        fig_fin.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40), legend=dict(orientation="h", y=-0.2))
                        st.plotly_chart(fig_fin, use_container_width=True)
                   elif config.get('numeric_cols'):
                        target = config['numeric_cols'][0]
                        fig_dist = px.histogram(df, x=target, 
-                                             title=f"📊 Distribuição: {target}", 
+                                             title=f"📊 Distribuição de {target}", 
                                              template="plotly_white", color_discrete_sequence=['#5145cd'])
                        fig_dist.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
                        st.plotly_chart(fig_dist, use_container_width=True)
+                  else:
+                       st.info("ℹ️ Carregue dados numéricos para ver o perfil de distribuição.")
                   st.markdown('</div>', unsafe_allow_html=True)
 
              # --- Espaço para Gráfico 2 ---
              with st.container():
                   st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                  if config.get('is_financial') and has_fin_cols:
-                       # Balanço de Saldo
-                       x_col = next(c for c in df.columns if c.lower() == 'ano')
-                       r_col = next(c for c in df.columns if c.lower() == 'receita_total')
-                       d_col = next(c for c in df.columns if c.lower() == 'despesa_total')
+                  if config.get('is_financial') and fin_tempo and fin_receita and fin_despesa:
+                       df_balance = df.groupby(fin_tempo).sum().reset_index()
+                       df_balance['saldo'] = df_balance[fin_receita] - df_balance[fin_despesa]
                        
-                       df_balance = df.groupby(x_col).sum().reset_index()
-                       df_balance['saldo'] = df_balance[r_col] - df_balance[d_col]
-                       
-                       fig_bal = px.bar(df_balance, x=x_col, y='saldo', title="⚖️ Superávit/Déficit",
+                       fig_bal = px.bar(df_balance, x=fin_tempo, y='saldo', title="⚖️ Superávit/Déficit",
                                       color='saldo', color_continuous_scale="RdYlGn", template="plotly_white")
                        fig_bal.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
                        st.plotly_chart(fig_bal, use_container_width=True)
@@ -336,6 +338,8 @@ if uploaded_file is not None:
                                            title="🎯 Correlação Principal", template="plotly_white")
                        fig_scat.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
                        st.plotly_chart(fig_scat, use_container_width=True)
+                  else:
+                       st.info("🎯 Para correlação, são necessários ao menos dois indicadores numéricos.")
                   st.markdown('</div>', unsafe_allow_html=True)
 
              #--- Espaço para Gráfico 3 ---
@@ -359,28 +363,60 @@ if uploaded_file is not None:
              
              with c_col1:
                   st.markdown('<div class="print-hide">', unsafe_allow_html=True)
-                  x_axis = st.selectbox("Eixo X (Relatório):", config['cat_cols'] + config['numeric_cols'] if config['cat_cols'] else config['numeric_cols'], index=0)
-                  y_axis = st.selectbox("Eixo Y (Relatório):", config['numeric_cols'], index=min(1, len(config['numeric_cols'])-1))
+                  # Filtra opções disponíveis
+                  avail_x = config.get('cat_cols', []) + config.get('numeric_cols', []) + config.get('date_cols', [])
+                  avail_y = config.get('numeric_cols', [])
                   
-                  # Novo: Seletor de Tipo Manual
-                  chart_pref = st.segmented_control(
-                       "Formato Visual:", 
-                       options=["Auto", "Barras", "Linhas", "Dispersão", "Distribuição"]
-                  )
+                  if not avail_x or not avail_y:
+                      st.warning("⚠️ O dataset não possui colunas numéricas ou categóricas suficientes para análise dinâmica.")
+                      x_axis, y_axis, chart_pref = None, None, "Auto"
+                  else:
+                      # Defaults Inteligentes (Ano/Data no X, Valor/Total no Y)
+                      def_x_idx = 0
+                      for i, col in enumerate(avail_x):
+                          if any(h in str(col).lower() for h in ['ano', 'data', 'date', 'mês', 'year']):
+                              def_x_idx = i
+                              break
+                      
+                      def_y_idx = 0
+                      for i, col in enumerate(avail_y):
+                          if any(h in str(col).lower() for h in ['total', 'valor', 'receita', 'despesa', 'preço', 'amount']):
+                              def_y_idx = i
+                              break
+
+                      x_axis = st.selectbox("Eixo X (Categorias/Tempo):", options=avail_x, index=def_x_idx)
+                      y_axis = st.selectbox("Eixo Y (Métrica/Valor):", options=avail_y, index=def_y_idx)
+                      
+                      chart_pref = st.segmented_control(
+                           "Formato Visual:", 
+                           options=["Auto", "Barras", "Linhas", "Dispersão", "Distribuição"],
+                           default="Auto"
+                      )
+                      if not chart_pref: chart_pref = "Auto"
                   st.markdown('</div>', unsafe_allow_html=True)
                   
                   # Insights Automáticos (Simulado com proteção ZeroDivision)
-                  min_val = df[y_axis].min()
-                  variation = ((df[y_axis].max() - min_val) / min_val * 100) if min_val != 0 else 0
-                  st.info(f"O indicador **{y_axis}** apresenta variação de {variation:.1f}% entre os extremos.")
+                  if y_axis and y_axis in df.columns:
+                       min_val = df[y_axis].min()
+                       max_val = df[y_axis].max()
+                       variation = ((max_val - min_val) / min_val * 100) if min_val and min_val != 0 else 0
+                       st.info(f"💡 O indicador **{y_axis}** apresenta variação de {variation:.1f}% entre os extremos registrados.")
 
              with c_col2:
+                  if not x_axis or not y_axis:
+                       st.info("📊 Selecione os eixos ao lado para gerar o cruzamento de dados.")
+                       st.stop()
+
                   # --- Lógica Semântica de Seleção de Gráfico ---
                   df_clean = df.copy()
                   
                   # Caso o usuário selecione o mesmo eixo, avisamos mas não quebramos
                   if x_axis == y_axis:
                        st.warning("⚠️ Selecione indicadores diferentes para X e Y para uma análise comparativa.")
+                  
+                  # Tratamento especial para Datas no X
+                  if x_axis in config.get('date_cols', []):
+                       df_clean[x_axis] = pd.to_datetime(df_clean[x_axis]).dt.date
                   
                   if x_axis in config['cat_cols']:
                        df_clean[x_axis] = df_clean[x_axis].astype(str).str.strip()
@@ -419,6 +455,9 @@ if uploaded_file is not None:
                        fig_dyn = px.area(df_plot, x=x_axis, y=y_axis, title=f"Tendência: {y_axis}",
                                        template="plotly_white", line_shape="spline")
                        fig_dyn.update_traces(line_color="#5145cd", fillcolor="rgba(81, 69, 205, 0.2)")
+                  elif final_type == "Distribuição":
+                       fig_dyn = px.box(df_clean, x=x_axis, y=y_axis, title=f"Distribuição: {y_axis} por {x_axis}",
+                                      template="plotly_white", color=x_axis)
                   else: # Dispersão
                        # Tenta usar trendline apenas se statsmodels estiver instalado
                        has_stats = True
