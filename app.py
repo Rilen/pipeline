@@ -74,13 +74,22 @@ st.markdown("""
     /* Hide standard UI fluff */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Remove huge top padding */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
+        padding-left: 5rem !important;
+        padding-right: 5rem !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Header & Navegação ---
-st.title("🤖 Analista IA PRO")
-st.caption("Engenharia de Dados e Análise Preditiva de Alta Performance | V2.1")
-st.markdown("---")
+# --- Header & Navegação (Removido por solicitação por ser redundante) ---
+# st.title("🤖 Analista IA PRO")
+# st.caption("Engenharia de Dados e Análise Preditiva de Alta Performance | V2.1")
+# st.markdown("---")
 
 # --- Interface Principal (Área de Upload) ---
 col_u1, col_u2 = st.columns([2, 1])
