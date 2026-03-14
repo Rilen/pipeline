@@ -7,11 +7,12 @@ import os
 import io
 from PIL import Image
 
-# --- Novos Módulos Arquitetados (Clean Code) ---
-from src.intelligence import intel_engine as intel
+# --- Módulos Arquitetados (Clean Code) ---
+# Imports seguros: apenas classes/funções, sem instanciação pesada
+from src.intelligence import get_intel_engine
 from src.analytics import analytics as ds
-from src.data_engine import db_interface
-from src.report_engine import report_gen
+from src.data_engine import get_db_interface
+from src.report_engine import ReportEngine
 
 # --- Configurações de Interface Premium ---
 st.set_page_config(
@@ -137,7 +138,7 @@ if uploaded_file is not None:
         # --- CASO 1: IMAGENS (OCR + VISION) ---
         if file_type in ['png', 'jpg', 'jpeg']:
             st.write("🔍 Iniciando Visão Computacional / OCR...")
-            report, image = intel.analyze_image_ocr(io.BytesIO(file_content))
+            report, image = get_intel_engine().analyze_image_ocr(io.BytesIO(file_content))
             df = None
             
         # --- CASO 2: DOCUMENTOS E PLANILHAS ---
@@ -145,8 +146,8 @@ if uploaded_file is not None:
             st.write("📊 Analisando estrutura de dados...")
             
             if file_type == 'docx':
-                raw_text = intel.extract_text_from_docx(io.BytesIO(file_content))
-                report = intel.analyze_document_text(raw_text, "documento")
+                raw_text = get_intel_engine().extract_text_from_docx(io.BytesIO(file_content))
+                report = get_intel_engine().analyze_document_text(raw_text, "documento")
             else:
                 # CSV / XLSX / JSON / XML
                 try:
@@ -236,7 +237,7 @@ if uploaded_file is not None:
 
                     # Gera Resumo (Inteligência Híbrida)
                     summary = f"Estrutura: {list(df.columns)}. Resumo Estatístico: {df.describe().to_string()}"
-                    report = intel.analyze_document_text(summary, "planilha")
+                    report = get_intel_engine().analyze_document_text(summary, "planilha")
                 except Exception as e:
                     st.error(f"Erro crítico no processamento de dados: {e}")
                     df = None
@@ -562,7 +563,7 @@ if uploaded_file is not None:
                              "Qualidade": f"{config.get('completeness_score', 0):.1f}%",
                              "Colunas": len(config.get('cat_cols', []) + config.get('numeric_cols', []))
                          }
-                         pdf_data = report_gen.create_pdf(uploaded_file.name, report, all_figs, stats_summary)
+                         pdf_data = ReportEngine().create_pdf(uploaded_file.name, report, all_figs, stats_summary)
                          
                          st.download_button(
                              label="📥 Baixar Relatório PDF",
@@ -591,7 +592,7 @@ if uploaded_file is not None:
              with ce1:
                   if st.button("🚀 Commit de Dados para Firestore", width="stretch"):
                        with st.spinner("Subindo em lote..."):
-                            msg = db_interface.batch_upload_df(df, target_collection)
+                            msg = get_db_interface().batch_upload_df(df, target_collection)
                             st.success(msg)
                             st.balloons()
              

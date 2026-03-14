@@ -56,8 +56,9 @@ class DataScientist:
         # 1. Normalização de Nomes de Colunas (remover espaços extras e padronizar)
         df.columns = [c.strip() for c in df.columns]
         
-        # 2. Trata nulos comuns
-        df = df.replace(['-', 'N/A', 'nan', 'null', 'None', '', ' '], np.nan)
+        # 2. Trata nulos comuns (com opt-in para novo comportamento do pandas)
+        with pd.option_context('future.no_silent_downcasting', True):
+            df = df.replace(['-', 'N/A', 'nan', 'null', 'None', '', ' '], np.nan).infer_objects(copy=False)
         
         # 3. Smart Parsing de Números (Lida com formato brasileiro "1.234,56" ou monetário "R$ 10,00")
         for col in df.select_dtypes(include=['object']).columns:

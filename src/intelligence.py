@@ -200,4 +200,18 @@ class IntelEngine:
         except Exception as e:
             return f"Erro DOCX: {e}"
 
-intel_engine = IntelEngine()
+
+def get_intel_engine():
+    """Factory function para inicialização lazy — evita quebrar o import do módulo."""
+    if not hasattr(get_intel_engine, '_instance'):
+        try:
+            get_intel_engine._instance = IntelEngine()
+        except Exception as e:
+            print(f"❌ Erro ao criar IntelEngine: {e}")
+            get_intel_engine._instance = IntelEngine.__new__(IntelEngine)
+            get_intel_engine._instance.gemini_key = None
+            get_intel_engine._instance.groq_key = None
+            get_intel_engine._instance.available_gemini_models = []
+            get_intel_engine._instance.gemini_client = None
+            get_intel_engine._instance.groq_client = None
+    return get_intel_engine._instance

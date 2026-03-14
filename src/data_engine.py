@@ -117,4 +117,15 @@ class FirestoreDataInterface:
         batch.commit()
         return f"✅ {count} registros na coleção '{collection_name}'."
 
-db_interface = FirestoreDataInterface()
+
+def get_db_interface():
+    """Factory function para inicialização lazy do Firebase."""
+    if not hasattr(get_db_interface, '_instance'):
+        try:
+            get_db_interface._instance = FirestoreDataInterface()
+        except Exception as e:
+            print(f"❌ Erro ao criar FirestoreDataInterface: {e}")
+            get_db_interface._instance = FirestoreDataInterface.__new__(FirestoreDataInterface)
+            get_db_interface._instance._db = None
+            get_db_interface._instance._bucket = None
+    return get_db_interface._instance
