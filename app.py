@@ -89,8 +89,8 @@ with col_u1:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     st.subheader("📁 Central de Arquivos Multi-IA")
     uploaded_file = st.file_uploader(
-        "Arraste planilhas (.xlsx, .csv), documentos (.docx), imagens (.jpg, .png) ou dados (.json)", 
-        type=["xlsx", "csv", "docx", "json", "png", "jpg", "jpeg"], 
+        "Arraste planilhas (.xlsx, .csv), documentos (.docx), imagens (.jpg, .png), dados (.json) ou arquivos (.xml)", 
+        type=["xlsx", "csv", "docx", "json", "xml", "png", "jpg", "jpeg"], 
         label_visibility="collapsed"
     )
     st.markdown('</div>', unsafe_allow_html=True)
@@ -129,6 +129,14 @@ if uploaded_file is not None:
                  try:
                       if file_type == 'xlsx': df = pd.read_excel(uploaded_file)
                       elif file_type == 'json': df = pd.read_json(uploaded_file)
+                      elif file_type == 'xml':
+                           try:
+                                # Tenta ler considerando a estrutura Servidores/Servidor
+                                df = pd.read_xml(uploaded_file, xpath=".//Servidor")
+                           except Exception:
+                                # Fallback genérico se a estrutura for diferente
+                                uploaded_file.seek(0)
+                                df = pd.read_xml(uploaded_file)
                       else:
                            # CSV Parsing Robusto (Suporta ;\t e decimais brasileiros)
                            try:
