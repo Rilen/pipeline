@@ -130,48 +130,53 @@ if uploaded_file is not None:
             st.write("📊 Analisando estrutura de dados...")
             
             if file_type == 'docx':
-                 raw_text = intel.extract_text_from_docx(uploaded_file)
-                 report = intel.analyze_document_text(raw_text, "documento")
-                 df = None
+                raw_text = intel.extract_text_from_docx(uploaded_file)
+                report = intel.analyze_document_text(raw_text, "documento")
             else:
-                 # CSV / XLSX / JSON
-                 try:
-                      if file_type == 'xlsx': df = pd.read_excel(uploaded_file)
-                      elif file_type == 'json': df = pd.read_json(uploaded_file)
-                      elif file_type == 'xml':
-                           try:
-                                # Tenta ler considerando a estrutura Servidores/Servidor
-                                df = pd.read_xml(uploaded_file, xpath=".//Servidor")
-                           except Exception:
-                                # Fallback genérico se a estrutura for diferente
-                                uploaded_file.seek(0)
-                                df = pd.read_xml(uploaded_file)
-                      else:
-                           # CSV Parsing Robusto (Suporta ;\t e decimais brasileiros)
-                           try:
-                                # Tenta primeiro com detecção automática e decimal em vírgula
-                                df = pd.read_csv(uploaded_file, sep=None, engine='python', decimal=',', encoding='utf-8-sig')
-                           except Exception:
-                                try:
-                                     # Fallback 1: Retorna ao início do stream e tenta com ponto decimal
-                                     uploaded_file.seek(0)
-                                     df = pd.read_csv(uploaded_file, sep=None, engine='python', encoding='utf-8-sig')
-                                except Exception:
-                                     # Fallback 2: Tenta encoding latin-1 (comum em arquivos Windows antigos)
-                                     uploaded_file.seek(0)
-                                     df = pd.read_csv(uploaded_file, sep=None, engine='python', encoding='latin-1')
-                      
-                      # Normalização/Limpeza (Engenharia de Software)
-                      if enable_cleaning:
-                           df = ds.clean_and_normalize(df)
-                      
-                      # Gera Resumo (Inteligência Híbrida)
-                      summary = f"Estrutura: {list(df.columns)}. Resumo Estatístico: {df.describe().to_string()}"
-                      report = intel.analyze_document_text(summary, "planilha")
-                 except Exception as e:
-                      st.error(f"Erro crítico no processamento de dados: {e}")
-                      df = None
-                      report = f"Erro fatal no parsing do arquivo: {str(e)}"
+                # CSV / XLSX / JSON / XML
+                try:
+                    # Resolve o erro "I/O operation on closed file" lendo para a memória
+                    file_bytes = io.BytesIO(uploaded_file.read())
+                    
+                    if file_type == 'xlsx': 
+                        df = pd.read_excel(file_bytes)
+                    elif file_type == 'json': 
+                        df = pd.read_json(file_bytes)
+                    elif file_type == 'xml':
+                        try:
+                            # Tenta ler considerando a estrutura Servidores/Servidor
+                            df = pd.read_xml(file_bytes, xpath=".//Servidor")
+                        except Exception:
+                            # Fallback genérico se a estrutura for diferente
+                            file_bytes.seek(0)
+                            df = pd.read_xml(file_bytes)
+                    else:
+                        # CSV Parsing Robusto
+                        try:
+                            # Tenta primeiro com detecção automática e decimal em vírgula
+                            file_bytes.seek(0)
+                            df = pd.read_csv(file_bytes, sep=None, engine='python', decimal=',', encoding='utf-8-sig')
+                        except Exception:
+                            try:
+                                # Fallback 1: Retorna ao início do stream e tenta com ponto decimal
+                                file_bytes.seek(0)
+                                df = pd.read_csv(file_bytes, sep=None, engine='python', encoding='utf-8-sig')
+                            except Exception:
+                                # Fallback 2: Tenta encoding latin-1
+                                file_bytes.seek(0)
+                                df = pd.read_csv(file_bytes, sep=None, engine='python', encoding='latin-1')
+                    
+                    # Normalização/Limpeza (Engenharia de Software)
+                    if enable_cleaning and df is not None:
+                        df = ds.clean_and_normalize(df)
+
+                    # Gera Resumo (Inteligência Híbrida)
+                    summary = f"Estrutura: {list(df.columns)}. Resumo Estatístico: {df.describe().to_string()}"
+                    report = intel.analyze_document_text(summary, "planilha")
+                except Exception as e:
+                    st.error(f"Erro crítico no processamento de dados: {e}")
+                    df = None
+                    report = f"Erro fatal no parsing do arquivo: {str(e)}"
 
         status.update(label="✅ Análise concluída!", state="complete", expanded=False)
 
@@ -225,24 +230,7 @@ if uploaded_file is not None:
              st.caption(f"Análise processada em {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M')}")
              
              # --- GRID DE VISUALIZAÇÃO MULTIDIMENSIONAL ---
-             cols = df.columns.tolist()
-             has_year = any(word in [c.lower() for c in cols] for word in ['ano', 'year', 'data', 'date'])
-             year_col = next((c for c in cols if c.lower() in ['ano', 'year']), None)
-
-             # Área Principal de Gráficos (Grid 2x2 ou 1x2)
-             g1, g2 = st.columns(2)
-
-             with g1:
-                  # Gráfico 1: Distribuição Geográfica/Setorial
-                   if config.get('cat_cols'):
-                        # Escolhe a categoria com cardinalidade razoável (nem 1 nem mil)
-                        best_cat = next((c for c in config.get('cat_cols') if 1 < df[c].nunique() < 15), config.get('cat_cols')[0])
-                        fig_pie = px.pie(df, names=best_cat, hole=0.4, title=f"Mix por {best_cat.title()}",
-                                      template="plotly_white", color_discrete_sequence=px.colors.qualitative.G10)
-                        fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.2))
-                        st.plotly_chart(fig_pie, use_container_width=True)
-                   else:
-                       st.info("Sem dados categóricos para distribuição.")
+             # Removido bloco redundante g1/g2 para limpar o topo do dashboard
              # --- Dashboard Executivo (Grid Responsivo) ---
              st.markdown("""
              <style>
