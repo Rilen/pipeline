@@ -11,6 +11,7 @@ from PIL import Image
 from src.intelligence import intel_engine as intel
 from src.analytics import analytics as ds
 from src.data_engine import db_interface
+from src.report_engine import report_gen
 
 # --- Configurações de Interface Premium ---
 st.set_page_config(
@@ -82,6 +83,25 @@ st.markdown("""
         padding-bottom: 0rem !important;
         padding-left: 5rem !important;
         padding-right: 5rem !important;
+    }
+
+    /* FIX PRINT BUG: Ensure full page is captured */
+    @media print {
+        .stApp {
+            overflow: visible !important;
+            height: auto !important;
+        }
+        .main {
+            overflow: visible !important;
+            height: auto !important;
+        }
+        [data-testid="stSidebar"], [data-testid="stHeader"], .stTabs button, .print-hide { 
+            display: none !important; 
+        }
+        .block-container {
+            padding: 0 !important;
+            margin: 0 !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -212,10 +232,8 @@ if uploaded_file is not None:
              </style>
              """, unsafe_allow_html=True)
 
-             # Botão de Impressão (Visual apenas na Web)
-             st.markdown('<div class="print-hide" style="text-align: right;">', unsafe_allow_html=True)
-             if st.button("🖨️ Gerar PDF / Imprimir Relatório"):
-                  st.info("💡 Dica: Use Ctrl+P no navegador e selecione 'Salvar como PDF' para exportar este relatório.")
+             # Coletor de Figuras para o PDF
+             all_figs = []
 
              # --- CONTAINER DO RELATÓRIO EXECUTIVO ---
              st.markdown(f"## 📑 Dashboard de Performance Digital: {uploaded_file.name}")
@@ -307,6 +325,7 @@ if uploaded_file is not None:
                                        title="💰 Fluxo Financeiro Temporal", template="plotly_white")
                        fig_fin.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40), legend=dict(orientation="h", y=-0.2))
                        st.plotly_chart(fig_fin, use_container_width=True)
+                       all_figs.append(fig_fin)
                   elif config.get('numeric_cols'):
                        target = config['numeric_cols'][0]
                        fig_dist = px.histogram(df, x=target, 
@@ -314,6 +333,7 @@ if uploaded_file is not None:
                                              template="plotly_white", color_discrete_sequence=['#5145cd'])
                        fig_dist.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
                        st.plotly_chart(fig_dist, use_container_width=True)
+                       all_figs.append(fig_dist)
                   else:
                        st.info("ℹ️ Carregue dados numéricos para ver o perfil de distribuição.")
 
@@ -328,11 +348,13 @@ if uploaded_file is not None:
                                       color='saldo', color_continuous_scale="RdYlGn", template="plotly_white")
                        fig_bal.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
                        st.plotly_chart(fig_bal, use_container_width=True)
+                       all_figs.append(fig_bal)
                   elif len(config.get('numeric_cols', [])) > 1:
                        fig_scat = px.scatter(df, x=config['numeric_cols'][0], y=config['numeric_cols'][1],
                                            title="🎯 Correlação Principal", template="plotly_white")
                        fig_scat.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
                        st.plotly_chart(fig_scat, use_container_width=True)
+                       all_figs.append(fig_scat)
                   else:
                        st.info("🎯 Para correlação, são necessários ao menos dois indicadores numéricos.")
 
@@ -347,6 +369,7 @@ if uploaded_file is not None:
                                       color=target, template="plotly_white", color_continuous_scale="Viridis")
                        fig_bar.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
                        st.plotly_chart(fig_bar, use_container_width=True)
+                       all_figs.append(fig_bar)
 
              # Linha Especial: Análise de Correlação ou Cruzamento
              st.markdown("### 🔍 Cruzamento Dinâmico de Indicadores")
@@ -470,6 +493,32 @@ if uploaded_file is not None:
 
                   fig_dyn.update_layout(height=450, margin=dict(l=20, r=20, t=50, b=20), showlegend=False)
                   st.plotly_chart(fig_dyn, use_container_width=True)
+                  all_figs.append(fig_dyn)
+
+             # --- BOTÃO DE EXPORTAÇÃO REAL (PDF FILE) ---
+             st.markdown("---")
+             st.markdown('<div class="print-hide">', unsafe_allow_html=True)
+             if st.button("📄 Gerar Arquivo PDF para Download"):
+                 with st.spinner("Compilando relatório em PDF de alta qualidade..."):
+                     try:
+                         # Prepara dados para o PDF
+                         stats_summary = {
+                             "Registros": config.get('num_records', 0),
+                             "Qualidade": f"{config.get('completeness_score', 0):.1f}%",
+                             "Colunas": len(config.get('cat_cols', []) + config.get('numeric_cols', []))
+                         }
+                         pdf_data = report_gen.create_pdf(uploaded_file.name, report, all_figs, stats_summary)
+                         
+                         st.download_button(
+                             label="📥 Baixar Relatório PDF",
+                             data=bytes(pdf_data),
+                             file_name=f"Relatorio_{uploaded_file.name.split('.')[0]}.pdf",
+                             mime="application/pdf",
+                             use_container_width=True
+                         )
+                     except Exception as e:
+                         st.error(f"Erro na exportação para PDF: {e}")
+             st.markdown('</div>', unsafe_allow_html=True)
 
 
         else:
