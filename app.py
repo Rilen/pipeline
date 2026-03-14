@@ -132,14 +132,16 @@ if uploaded_file is not None:
     file_type = uploaded_file.name.split('.')[-1].lower()
     df = None
     config = None
-    # 1. Carrega o arquivo integralmente para a memória para evitar erro "I/O operation on closed file"
-    file_bytes = io.BytesIO(uploaded_file.read())
+    # 1. Carrega o conteúdo decimal para a memória de forma imutável (bytes)
+    # O método .getvalue() do Streamlit é mais seguro que .read() pois não move o ponteiro
+    file_content = uploaded_file.getvalue()
     
     with st.status("🧠 Engine processando análise estratégica...", expanded=True) as status:
         # --- CASO 1: IMAGENS (OCR + VISION) ---
         if file_type in ['png', 'jpg', 'jpeg']:
             st.write("🔍 Iniciando Visão Computacional / OCR...")
-            report, image = intel.analyze_image_ocr(file_bytes)
+            # Criamos um BytesIO novo apenas para esta operação
+            report, image = intel.analyze_image_ocr(io.BytesIO(file_content))
             df = None
             
         # --- CASO 2: DOCUMENTOS E PLANILHAS ---
@@ -147,40 +149,35 @@ if uploaded_file is not None:
             st.write("📊 Analisando estrutura de dados...")
             
             if file_type == 'docx':
-                raw_text = intel.extract_text_from_docx(file_bytes)
+                # Criamos um BytesIO novo apenas para esta operação
+                raw_text = intel.extract_text_from_docx(io.BytesIO(file_content))
                 report = intel.analyze_document_text(raw_text, "documento")
             else:
                 # CSV / XLSX / JSON / XML
                 try:
-                    file_bytes.seek(0)
                     if file_type == 'xlsx': 
-                        df = pd.read_excel(file_bytes)
+                        df = pd.read_excel(io.BytesIO(file_content))
                     elif file_type == 'json': 
-                        df = pd.read_json(file_bytes)
+                        df = pd.read_json(io.BytesIO(file_content))
                     elif file_type == 'xml':
                         try:
                             # Tenta ler considerando a estrutura Servidores/Servidor
-                            file_bytes.seek(0)
-                            df = pd.read_xml(file_bytes, xpath=".//Servidor")
+                            df = pd.read_xml(io.BytesIO(file_content), xpath=".//Servidor")
                         except Exception:
                             # Fallback genérico se a estrutura for diferente
-                            file_bytes.seek(0)
-                            df = pd.read_xml(file_bytes)
+                            df = pd.read_xml(io.BytesIO(file_content))
                     else:
                         # CSV Parsing Robusto
                         try:
                             # Tenta primeiro com detecção automática e decimal em vírgula
-                            file_bytes.seek(0)
-                            df = pd.read_csv(file_bytes, sep=None, engine='python', decimal=',', encoding='utf-8-sig')
+                            df = pd.read_csv(io.BytesIO(file_content), sep=None, engine='python', decimal=',', encoding='utf-8-sig')
                         except Exception:
                             try:
-                                # Fallback 1: Retorna ao início do stream e tenta com ponto decimal
-                                file_bytes.seek(0)
-                                df = pd.read_csv(file_bytes, sep=None, engine='python', encoding='utf-8-sig')
+                                # Fallback 1: Tenta com ponto decimal
+                                df = pd.read_csv(io.BytesIO(file_content), sep=None, engine='python', encoding='utf-8-sig')
                             except Exception:
                                 # Fallback 2: Tenta encoding latin-1
-                                file_bytes.seek(0)
-                                df = pd.read_csv(file_bytes, sep=None, engine='python', encoding='latin-1')
+                                df = pd.read_csv(io.BytesIO(file_content), sep=None, engine='python', encoding='latin-1')
                     
                     # Normalização/Limpeza (Engenharia de Software)
                     if enable_cleaning and df is not None:
