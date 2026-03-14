@@ -1,4 +1,5 @@
-import google.generativeai as genai
+
+from google import genai
 import streamlit as st
 import PIL.Image
 import pandas as pd
@@ -21,14 +22,23 @@ class IntelEngine:
         self.groq_key = st.secrets.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY")
         
         self.available_gemini_models = []
+        self.gemini_client = None
+        
         if self.gemini_key:
             try:
-                genai.configure(api_key=self.gemini_key)
-                models = genai.list_models()
-                self.available_gemini_models = [m.name.replace('models/', '') for m in models if 'generateContent' in m.supported_generation_methods]
+                # Inicializa o novo cliente do Google GenAI
+                self.gemini_client = genai.Client(api_key=self.gemini_key)
+                
+                # Lista modelos disponíveis usando a nova SDK
+                models = self.gemini_client.models.list()
+                for m in models:
+                    if 'generateContent' in m.supported_generation_methods:
+                        model_id = m.name.replace('models/', '')
+                        self.available_gemini_models.append(model_id)
+                
                 print(f"📦 Modelos Gemini detectados: {self.available_gemini_models}")
             except Exception as e:
-                print(f"❌ Erro ao listar modelos Gemini: {e}")
+                print(f"❌ Erro ao inicializar cliente Gemini: {e}")
         
         self.groq_client = None
         if self.groq_key:
@@ -41,8 +51,8 @@ class IntelEngine:
         """
         Extrai texto de imagens com fallback automático de modelos em caso de erro de cota (429).
         """
-        if not self.gemini_key:
-            return "❌ API Key do Gemini não configurada.", None
+        if not self.gemini_client:
+            return "❌ Engine do Gemini não inicializada ou API Key ausente.", None
 
         try:
             img = PIL.Image.open(uploaded_image)
@@ -64,8 +74,11 @@ class IntelEngine:
             last_error = ""
             for model_name in to_try:
                 try:
-                    model = genai.GenerativeModel(model_name)
-                    response = model.generate_content([prompt, img])
+                    # Uso da nova SDK para geração de conteúdo
+                    response = self.gemini_client.models.generate_content(
+                        model=model_name,
+                        contents=[prompt, img]
+                    )
                     return f"## 🤖 Insights IA (Gemini - {model_name})\n{response.text}", img
                 except Exception as e:
                     last_error = str(e)
@@ -86,7 +99,6 @@ class IntelEngine:
                     base64_image = base64.b64encode(img_bytes).decode('utf-8')
 
                     # Fallback para Groq Vision (Pool de modelos para redundância)
-                    # O Groq frequentemente atualiza os IDs dos modelos
                     groq_candidates = [
                         "meta-llama/llama-4-scout-17b-16e-instruct", # Novo padrão Llama 4
                         "llama-3.2-11b-vision-instruct",
@@ -137,7 +149,11 @@ class IntelEngine:
         """
         prompt = f"Analise este {context} e extraia 3 insights estratégicos curtos:\n\n{text[:8000]}"
         
-        # 1. Tentativa com Gemini (Pool expandido)
+        if not self.gemini_client:
+            # Fallback direto para Groq se Gemini não estiver configurado
+            return self._analyze_with_groq(prompt)
+
+        # 1. Tentativa com Gemini
         candidates = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.0-flash', 'gemini-flash-latest']
         to_try = [m for m in candidates if m in self.available_gemini_models]
         
@@ -146,14 +162,20 @@ class IntelEngine:
 
         for model_name in to_try:
             try:
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content(prompt)
+                response = self.gemini_client.models.generate_content(
+                    model=model_name,
+                    contents=prompt
+                )
                 return f"## 🤖 Insights IA (Gemini - {model_name})\n{response.text}"
             except Exception as e:
                 if "429" in str(e): continue
                 break
 
         # 2. Tentativa com Groq (Llama 3)
+        return self._analyze_with_groq(prompt)
+
+    def _analyze_with_groq(self, prompt):
+        """Helper para análise via Groq"""
         if self.groq_client:
             try:
                 completion = self.groq_client.chat.completions.create(
@@ -163,7 +185,6 @@ class IntelEngine:
                 return f"## 🤖 Insights IA (Groq)\n{completion.choices[0].message.content}"
             except:
                 pass
-        
         return "## 📊 Análise Local\nInsights de IA indisponíveis (Cota Gemini/Groq excedida)."
 
     @staticmethod

@@ -29,7 +29,7 @@ jupyter
 python-dotenv
 requests
 python-docx
-google-generativeai
+google-genai
 groq
 Pillow
 
