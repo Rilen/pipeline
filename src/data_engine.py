@@ -1,36 +1,33 @@
-import firebase_admin
-from firebase_admin import credentials, firestore
 import os
-import pandas as pd
 import streamlit as st
 
 class FirestoreDataInterface:
     """
     Interface central de banco de dados e ingestão.
-    Gerencia Firestore e Ingestão Local.
+    Imports pesados (firebase_admin) feitos dentro dos métodos para não quebrar o módulo.
     """
-    
-    _instance = None
     
     def __init__(self, service_account_path='config/service-account.json'):
         self.service_account_path = service_account_path
         self._db = None
         self._bucket = None
+        
         if os.path.exists(service_account_path):
-             self._initialize_from_file(service_account_path)
+            self._initialize_from_file(service_account_path)
         elif "firebase_secrets" in st.secrets:
-             self._initialize_from_secrets()
+            self._initialize_from_secrets()
         else:
-             print("⚠️ Firebase credentials not found (neither file nor secrets).")
+            print("⚠️ Firebase credentials not found (neither file nor secrets).")
 
     def _initialize_from_secrets(self):
         try:
+            import firebase_admin
+            from firebase_admin import credentials, firestore
+            
             if not firebase_admin._apps:
-                # Converte o AttrDict do Streamlit em um dicionário real para o Firebase
                 cred_dict = dict(st.secrets["firebase_secrets"])
                 cred = credentials.Certificate(cred_dict)
                 
-                # Tenta obter storageBucket dos secrets; se não existir, inicializa sem Storage
                 storage_bucket = st.secrets.get("FIREBASE_STORAGE_BUCKET", None)
                 if storage_bucket:
                     firebase_admin.initialize_app(cred, {'storageBucket': storage_bucket})
@@ -41,43 +38,45 @@ class FirestoreDataInterface:
             
             self._db = firestore.client()
             
-            # Storage é opcional — não quebra se não estiver configurado
+            # Storage é opcional
             try:
-                from firebase_admin import storage
+                from firebase_admin import storage as fb_storage
                 storage_bucket = st.secrets.get("FIREBASE_STORAGE_BUCKET", None)
                 if storage_bucket:
-                    self._bucket = storage.bucket(storage_bucket)
+                    self._bucket = fb_storage.bucket(storage_bucket)
             except Exception:
-                pass  # Storage não é essencial para o funcionamento principal
+                pass
                 
         except Exception as e:
             print(f"❌ Error initializing Firebase from secrets: {str(e)}")
 
     def _initialize_from_file(self, path):
-         try:
-             if not firebase_admin._apps:
-                 cred = credentials.Certificate(path)
-                 firebase_admin.initialize_app(cred)
-                 print("✅ Firebase initialized from service account.")
-             
-             self._db = firestore.client()
-             
-             # Storage é opcional
-             try:
-                 from firebase_admin import storage
-                 self._bucket = storage.bucket()
-             except Exception:
-                 pass
-         except Exception as e:
-             print(f"❌ Error initializing Firebase: {str(e)}")
+        try:
+            import firebase_admin
+            from firebase_admin import credentials, firestore
+            
+            if not firebase_admin._apps:
+                cred = credentials.Certificate(path)
+                firebase_admin.initialize_app(cred)
+                print("✅ Firebase initialized from service account.")
+            
+            self._db = firestore.client()
+            
+            try:
+                from firebase_admin import storage as fb_storage
+                self._bucket = fb_storage.bucket()
+            except Exception:
+                pass
+        except Exception as e:
+            print(f"❌ Error initializing Firebase: {str(e)}")
 
     def get_db(self):
         return self._db
 
     def batch_upload_df(self, df, collection_name='raw_data'):
-        """
-        Faz o upload de um DataFrame Pandas em lote para o Firestore.
-        """
+        """Faz o upload de um DataFrame Pandas em lote para o Firestore."""
+        import pandas as pd
+        
         if not self._db:
             return "⚠️ Database não conectado. Verifique credenciais."
 
@@ -85,13 +84,12 @@ class FirestoreDataInterface:
         count = 0
         
         for _, row in df.iterrows():
-            # Filtra nulos para evitar peso no Firestore
             data = row.dropna().to_dict()
             
             # Converte tipos numpy/pandas para tipos nativos do Python
             clean_data = {}
             for k, v in data.items():
-                if hasattr(v, 'item'):  # numpy scalar
+                if hasattr(v, 'item'):
                     clean_data[k] = v.item()
                 elif pd.isna(v):
                     continue
@@ -99,13 +97,12 @@ class FirestoreDataInterface:
                     clean_data[k] = v
             data = clean_data
             
-            # Tenta encontrar um ID único
             doc_id = str(data.get('id_inscricao', data.get('id', None)))
             
             if doc_id == 'None':
-                 doc_ref = self._db.collection(collection_name).document()
+                doc_ref = self._db.collection(collection_name).document()
             else:
-                 doc_ref = self._db.collection(collection_name).document(doc_id)
+                doc_ref = self._db.collection(collection_name).document(doc_id)
                  
             batch.set(doc_ref, data)
             count += 1

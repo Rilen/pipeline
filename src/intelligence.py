@@ -1,17 +1,11 @@
-
-from google import genai
 import streamlit as st
-import PIL.Image
-import pandas as pd
 import io
-import json
-from docx import Document
-from groq import Groq
 
 class IntelEngine:
     """
     Motor de Inteligência Híbrida (Gemini/Groq/Local).
     Responsável por OCR, NLP e Geração de Insights.
+    Todos os imports pesados são feitos dentro dos métodos para evitar quebrar o módulo.
     """
     
     def __init__(self):
@@ -26,44 +20,43 @@ class IntelEngine:
         
         if self.gemini_key:
             try:
+                from google import genai
                 # Inicializa o novo cliente do Google GenAI
                 self.gemini_client = genai.Client(api_key=self.gemini_key)
                 
                 # Lista modelos disponíveis usando a nova SDK
                 models = self.gemini_client.models.list()
                 for m in models:
-                    # A nova SDK usa supported_actions ou verifica se o modelo suporta geração
                     supported = getattr(m, 'supported_generation_methods', None) or getattr(m, 'supported_actions', [])
                     if 'generateContent' in supported or 'generate_content' in str(supported).lower():
                         model_id = m.name.replace('models/', '')
                         self.available_gemini_models.append(model_id)
                 
                 if not self.available_gemini_models:
-                    # Fallback: usa modelos conhecidos se a listagem não retornar nada útil
                     self.available_gemini_models = [
                         'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'
                     ]
-                    print(f"⚠️ Usando modelos Gemini padrão (listagem indisponível)")
+                    print("⚠️ Usando modelos Gemini padrão (listagem indisponível)")
                 else:
                     print(f"📦 Modelos Gemini detectados: {self.available_gemini_models}")
             except Exception as e:
                 error_msg = str(e)
-                print(f"❌ Erro ao listar modelos Gemini: {error_msg}")
-                # Se o erro for de API key, não tenta usar modelos padrão
+                print(f"❌ Erro ao inicializar Gemini: {error_msg}")
                 if '403' not in error_msg and 'leaked' not in error_msg.lower():
                     self.available_gemini_models = ['gemini-2.0-flash', 'gemini-1.5-flash']
         
         self.groq_client = None
         if self.groq_key:
             try:
+                from groq import Groq
                 self.groq_client = Groq(api_key=self.groq_key)
             except Exception as e:
                 print(f"❌ Erro Groq: {e}")
 
     def analyze_image_ocr(self, uploaded_image):
-        """
-        Extrai texto de imagens com fallback automático de modelos em caso de erro de cota (429).
-        """
+        """Extrai texto de imagens com fallback Gemini -> Groq."""
+        import PIL.Image
+        
         try:
             img = PIL.Image.open(uploaded_image)
         except Exception as e:
@@ -81,11 +74,9 @@ class IntelEngine:
                 'gemini-1.5-pro', 'gemini-flash-latest'
             ]
             to_try = [m for m in candidates if m in self.available_gemini_models]
-            
             if not to_try:
                 to_try = [self.available_gemini_models[0]]
 
-            last_error = ""
             for model_name in to_try:
                 try:
                     response = self.gemini_client.models.generate_content(
@@ -104,11 +95,10 @@ class IntelEngine:
         if self.groq_client:
             print("🔄 Tentando fallback para Groq Vision...")
             try:
+                import base64
                 img_byte_arr = io.BytesIO()
                 img.save(img_byte_arr, format='JPEG')
                 img_bytes = img_byte_arr.getvalue()
-                
-                import base64
                 base64_image = base64.b64encode(img_bytes).decode('utf-8')
 
                 groq_candidates = [
@@ -122,20 +112,13 @@ class IntelEngine:
                         print(f"🔄 Tentando Groq: {g_model}...")
                         completion = self.groq_client.chat.completions.create(
                             model=g_model,
-                            messages=[
-                                {
-                                    "role": "user",
-                                    "content": [
-                                        {"type": "text", "text": prompt},
-                                        {
-                                            "type": "image_url",
-                                            "image_url": {
-                                                "url": f"data:image/jpeg;base64,{base64_image}",
-                                            },
-                                        },
-                                    ],
-                                }
-                            ],
+                            messages=[{
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": prompt},
+                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
+                                ],
+                            }],
                         )
                         return f"## 🤖 Insights IA (Groq Fallback - {g_model})\n{completion.choices[0].message.content}", img
                     except Exception as e:
@@ -150,18 +133,14 @@ class IntelEngine:
         return "## 📊 Análise Local\nInsights de IA indisponíveis (APIs sem cota ou não configuradas). O arquivo foi carregado com sucesso.", img
 
     def analyze_document_text(self, text, context="documento"):
-        """
-        Analisa texto com fallback Gemini (Modelos Dinâmicos) -> Groq.
-        """
+        """Analisa texto com fallback Gemini -> Groq."""
         prompt = f"Analise este {context} e extraia 3 insights estratégicos curtos:\n\n{text[:8000]}"
         
         if not self.gemini_client or not self.available_gemini_models:
             return self._analyze_with_groq(prompt)
 
-        # 1. Tentativa com Gemini
         candidates = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-flash-latest']
         to_try = [m for m in candidates if m in self.available_gemini_models]
-        
         if not to_try and self.available_gemini_models:
             to_try = [self.available_gemini_models[0]]
 
@@ -176,7 +155,6 @@ class IntelEngine:
                 if "429" in str(e): continue
                 break
 
-        # 2. Tentativa com Groq (Llama 3)
         return self._analyze_with_groq(prompt)
 
     def _analyze_with_groq(self, prompt):
@@ -195,6 +173,7 @@ class IntelEngine:
     @staticmethod
     def extract_text_from_docx(file):
         try:
+            from docx import Document
             doc = Document(file)
             return '\n'.join([p.text for p in doc.paragraphs])
         except Exception as e:
