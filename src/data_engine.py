@@ -1,5 +1,5 @@
 import firebase_admin
-from firebase_admin import credentials, firestore, storage
+from firebase_admin import credentials, firestore
 import os
 import pandas as pd
 import streamlit as st
@@ -7,7 +7,7 @@ import streamlit as st
 class FirestoreDataInterface:
     """
     Interface central de banco de dados e ingestão.
-    Gerencia Firestore, Storage e Ingestão Local.
+    Gerencia Firestore e Ingestão Local.
     """
     
     _instance = None
@@ -29,24 +29,45 @@ class FirestoreDataInterface:
                 # Converte o AttrDict do Streamlit em um dicionário real para o Firebase
                 cred_dict = dict(st.secrets["firebase_secrets"])
                 cred = credentials.Certificate(cred_dict)
-                firebase_admin.initialize_app(cred)
+                
+                # Tenta obter storageBucket dos secrets; se não existir, inicializa sem Storage
+                storage_bucket = st.secrets.get("FIREBASE_STORAGE_BUCKET", None)
+                if storage_bucket:
+                    firebase_admin.initialize_app(cred, {'storageBucket': storage_bucket})
+                else:
+                    firebase_admin.initialize_app(cred)
+                    
                 print("✅ Firebase initialized from Streamlit secrets.")
             
             self._db = firestore.client()
-            self._bucket = storage.bucket()
+            
+            # Storage é opcional — não quebra se não estiver configurado
+            try:
+                from firebase_admin import storage
+                storage_bucket = st.secrets.get("FIREBASE_STORAGE_BUCKET", None)
+                if storage_bucket:
+                    self._bucket = storage.bucket(storage_bucket)
+            except Exception:
+                pass  # Storage não é essencial para o funcionamento principal
+                
         except Exception as e:
             print(f"❌ Error initializing Firebase from secrets: {str(e)}")
 
     def _initialize_from_file(self, path):
          try:
-             # Singleton check
              if not firebase_admin._apps:
                  cred = credentials.Certificate(path)
                  firebase_admin.initialize_app(cred)
                  print("✅ Firebase initialized from service account.")
              
              self._db = firestore.client()
-             self._bucket = storage.bucket()
+             
+             # Storage é opcional
+             try:
+                 from firebase_admin import storage
+                 self._bucket = storage.bucket()
+             except Exception:
+                 pass
          except Exception as e:
              print(f"❌ Error initializing Firebase: {str(e)}")
 
@@ -66,6 +87,17 @@ class FirestoreDataInterface:
         for _, row in df.iterrows():
             # Filtra nulos para evitar peso no Firestore
             data = row.dropna().to_dict()
+            
+            # Converte tipos numpy/pandas para tipos nativos do Python
+            clean_data = {}
+            for k, v in data.items():
+                if hasattr(v, 'item'):  # numpy scalar
+                    clean_data[k] = v.item()
+                elif pd.isna(v):
+                    continue
+                else:
+                    clean_data[k] = v
+            data = clean_data
             
             # Tenta encontrar um ID único
             doc_id = str(data.get('id_inscricao', data.get('id', None)))

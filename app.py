@@ -106,11 +106,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Header & Navegação (Removido por solicitação por ser redundante) ---
-# st.title("🤖 Analista IA PRO")
-# st.caption("Engenharia de Dados e Análise Preditiva de Alta Performance | V2.1")
-# st.markdown("---")
-
 # --- Interface Principal (Área de Upload) ---
 col_u1, col_u2 = st.columns([2, 1])
 
@@ -132,15 +127,16 @@ if uploaded_file is not None:
     file_type = uploaded_file.name.split('.')[-1].lower()
     df = None
     config = None
-    # 1. Carrega o conteúdo decimal para a memória de forma imutável (bytes)
-    # O método .getvalue() do Streamlit é mais seguro que .read() pois não move o ponteiro
+    report = ""
+    image = None
+    
+    # Carrega o conteúdo para a memória de forma imutável (bytes)
     file_content = uploaded_file.getvalue()
     
     with st.status("🧠 Engine processando análise estratégica...", expanded=True) as status:
         # --- CASO 1: IMAGENS (OCR + VISION) ---
         if file_type in ['png', 'jpg', 'jpeg']:
             st.write("🔍 Iniciando Visão Computacional / OCR...")
-            # Criamos um BytesIO novo apenas para esta operação
             report, image = intel.analyze_image_ocr(io.BytesIO(file_content))
             df = None
             
@@ -149,7 +145,6 @@ if uploaded_file is not None:
             st.write("📊 Analisando estrutura de dados...")
             
             if file_type == 'docx':
-                # Criamos um BytesIO novo apenas para esta operação
                 raw_text = intel.extract_text_from_docx(io.BytesIO(file_content))
                 report = intel.analyze_document_text(raw_text, "documento")
             else:
@@ -161,22 +156,17 @@ if uploaded_file is not None:
                         df = pd.read_json(io.BytesIO(file_content))
                     elif file_type == 'xml':
                         try:
-                            # Tenta ler considerando a estrutura Servidores/Servidor
                             df = pd.read_xml(io.BytesIO(file_content), xpath=".//Servidor")
                         except Exception:
-                            # Fallback genérico se a estrutura for diferente
                             df = pd.read_xml(io.BytesIO(file_content))
                     else:
                         # CSV Parsing Robusto
                         try:
-                            # Tenta primeiro com detecção automática e decimal em vírgula
                             df = pd.read_csv(io.BytesIO(file_content), sep=None, engine='python', decimal=',', encoding='utf-8-sig')
                         except Exception:
                             try:
-                                # Fallback 1: Tenta com ponto decimal
                                 df = pd.read_csv(io.BytesIO(file_content), sep=None, engine='python', encoding='utf-8-sig')
                             except Exception:
-                                # Fallback 2: Tenta encoding latin-1
                                 df = pd.read_csv(io.BytesIO(file_content), sep=None, engine='python', encoding='latin-1')
                     
                     # Normalização/Limpeza (Engenharia de Software)
@@ -198,17 +188,17 @@ if uploaded_file is not None:
 
     with tab_report:
         if file_type in ['png', 'jpg', 'jpeg'] and image is not None:
-             # Convertemos para RGB para garantir que o Streamlit consiga processar sem depender de metadados de formato
              if image.mode != 'RGB':
                  display_img = image.convert('RGB')
              else:
                  display_img = image
-             st.image(display_img, caption="Visualização do Original", use_container_width=True)
+             st.image(display_img, caption="Visualização do Original", width="stretch")
         st.markdown(report)
 
     with tab_viz:
         if df is not None:
              config, stats = ds.generate_statistical_profile(df)
+             
              # --- Estilo Específico para Impressão (Apenas via CSS) ---
              st.markdown("""
              <style>
@@ -236,27 +226,20 @@ if uploaded_file is not None:
              st.markdown(f"## 📑 Dashboard de Performance Digital: {uploaded_file.name}")
              st.caption(f"Análise processada em {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M')}")
              
-             # --- GRID DE VISUALIZAÇÃO MULTIDIMENSIONAL ---
-             # Removido bloco redundante g1/g2 para limpar o topo do dashboard
              # --- Dashboard Executivo (Grid Responsivo) ---
              st.markdown("""
              <style>
-             /* Container principal do dashboard */
              .dashboard-grid {
                  display: grid;
                  grid-template-columns: repeat(3, 1fr);
                  gap: 15px;
                  margin-bottom: 20px;
              }
-             
-             /* Responsividade: Celular (1 coluna) */
              @media (max-width: 768px) {
                  .dashboard-grid {
                      grid-template-columns: 1fr;
                  }
              }
-             
-             /* Estilização dos Cards */
              .metric-card {
                  background: white;
                  padding: 20px;
@@ -266,8 +249,6 @@ if uploaded_file is not None:
                  transition: transform 0.2s;
              }
              .metric-card:hover { transform: translateY(-2px); }
-             
-             /* Impressão: Manter grid se possível ou forçar 2 colunas */
              @media print {
                  .dashboard-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px; }
                  .print-hide { display: none !important; }
@@ -292,36 +273,33 @@ if uploaded_file is not None:
                  <div style="color: #94a3b8; font-size: 0.8rem;">Integridade de Preenchimento</div>
              </div>''', unsafe_allow_html=True)
              
-             # Card 3: Janelas
+             # Card 3: Amplitude
              st.markdown(f'''<div class="metric-card">
                  <div style="color: #64748b; font-size: 0.9rem; font-weight: 600;">AMPLITUDE</div>
                  <div style="color: #5145cd; font-size: 1.8rem; font-weight: 700;">{len(config.get('cat_cols', []) + config.get('numeric_cols', []))}</div>
                  <div style="color: #94a3b8; font-size: 0.8rem;">Indicadores Mapeados</div>
              </div>''', unsafe_allow_html=True)
              
+             st.markdown('</div>', unsafe_allow_html=True)
 
-             # 2. Seção de Gráficos Principais (3 Colunas na TV)
+             # 2. Seção de Gráficos Principais
              # --- Espaço para Gráfico 1 ---
              with st.container():
                   st.markdown('<div class="metric-card">', unsafe_allow_html=True)
                   
                   # Detecção flexível de colunas
-                  cols_lower = [c.lower() for c in df.columns]
-                  # Procura por colunas que contenham termos financeiros
                   fin_receita = next((c for c in df.columns if 'receita' in c.lower() or 'revenue' in c.lower()), None)
                   fin_despesa = next((c for c in df.columns if 'despesa' in c.lower() or 'expense' in c.lower() or 'custo' in c.lower()), None)
                   fin_tempo = next((c for c in df.columns if c.lower() in ['ano', 'mes', 'data', 'date', 'year']), None)
                   
                   if config.get('is_financial') and fin_tempo and (fin_receita or fin_despesa):
                        y_cols = [c for c in [fin_receita, fin_despesa] if c]
-                       
-                       # Agrupa por tempo se for numérico (ex: ano) ou data
-                       df_plot_fin = df.groupby(fin_tempo)[y_cols].sum().reset_index()
+                       df_plot_fin = df.groupby(fin_tempo, as_index=False)[y_cols].sum()
                        
                        fig_fin = px.line(df_plot_fin, x=fin_tempo, y=y_cols, 
                                        title="💰 Fluxo Financeiro Temporal", template="plotly_white")
                        fig_fin.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40), legend=dict(orientation="h", y=-0.2))
-                       st.plotly_chart(fig_fin, use_container_width=True)
+                       st.plotly_chart(fig_fin, width="stretch")
                        all_figs.append(fig_fin)
                   elif config.get('numeric_cols'):
                        target = config['numeric_cols'][0]
@@ -329,7 +307,7 @@ if uploaded_file is not None:
                                              title=f"📊 Distribuição de {target}", 
                                              template="plotly_white", color_discrete_sequence=['#5145cd'])
                        fig_dist.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
-                       st.plotly_chart(fig_dist, use_container_width=True)
+                       st.plotly_chart(fig_dist, width="stretch")
                        all_figs.append(fig_dist)
                   else:
                        st.info("ℹ️ Carregue dados numéricos para ver o perfil de distribuição.")
@@ -338,19 +316,19 @@ if uploaded_file is not None:
              with st.container():
                   st.markdown('<div class="metric-card">', unsafe_allow_html=True)
                   if config.get('is_financial') and fin_tempo and fin_receita and fin_despesa:
-                       df_balance = df.groupby(fin_tempo).sum().reset_index()
+                       df_balance = df.groupby(fin_tempo, as_index=False).sum(numeric_only=True)
                        df_balance['saldo'] = df_balance[fin_receita] - df_balance[fin_despesa]
                        
                        fig_bal = px.bar(df_balance, x=fin_tempo, y='saldo', title="⚖️ Superávit/Déficit",
                                       color='saldo', color_continuous_scale="RdYlGn", template="plotly_white")
                        fig_bal.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
-                       st.plotly_chart(fig_bal, use_container_width=True)
+                       st.plotly_chart(fig_bal, width="stretch")
                        all_figs.append(fig_bal)
                   elif len(config.get('numeric_cols', [])) > 1:
                        fig_scat = px.scatter(df, x=config['numeric_cols'][0], y=config['numeric_cols'][1],
                                            title="🎯 Correlação Principal", template="plotly_white")
                        fig_scat.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
-                       st.plotly_chart(fig_scat, use_container_width=True)
+                       st.plotly_chart(fig_scat, width="stretch")
                        all_figs.append(fig_scat)
                   else:
                        st.info("🎯 Para correlação, são necessários ao menos dois indicadores numéricos.")
@@ -358,15 +336,18 @@ if uploaded_file is not None:
              #--- Espaço para Gráfico 3 ---
              with st.container():
                   st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                  if config['cat_cols'] and config['numeric_cols']:
+                  if config.get('cat_cols') and config.get('numeric_cols'):
                        target = config['numeric_cols'][0]
                        cat = config['cat_cols'][0]
-                       df_rank = ds.calculate_group_averages(df, cat, target).head(10)
-                       fig_bar = px.bar(df_rank, x=target, y=cat, orientation='h', title=f"🏆 Top 10 {cat}",
-                                      color=target, template="plotly_white", color_continuous_scale="Viridis")
-                       fig_bar.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
-                       st.plotly_chart(fig_bar, use_container_width=True)
-                       all_figs.append(fig_bar)
+                       df_rank = ds.calculate_group_averages(df, cat, target)
+                       if df_rank is not None:
+                           df_rank = df_rank.head(10)
+                           fig_bar = px.bar(df_rank, x=target, y=cat, orientation='h', title=f"🏆 Top 10 {cat}",
+                                          color=target, template="plotly_white", color_continuous_scale="Viridis")
+                           fig_bar.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
+                           st.plotly_chart(fig_bar, width="stretch")
+                           all_figs.append(fig_bar)
+                  st.markdown('</div>', unsafe_allow_html=True)
 
              # Linha Especial: Análise de Correlação ou Cruzamento
              st.markdown("### 🔍 Cruzamento Dinâmico de Indicadores")
@@ -405,92 +386,109 @@ if uploaded_file is not None:
                       )
                       if not chart_pref: chart_pref = "Auto"
                   
-                  # Insights Automáticos (Simulado com proteção ZeroDivision)
-                  if y_axis and y_axis in df.columns:
-                       min_val = df[y_axis].min()
-                       max_val = df[y_axis].max()
-                       variation = ((max_val - min_val) / min_val * 100) if min_val and min_val != 0 else 0
-                       st.info(f"💡 O indicador **{y_axis}** apresenta variação de {variation:.1f}% entre os extremos registrados.")
+                  # Insights Automáticos
+                  if avail_x and avail_y and y_axis and y_axis in df.columns:
+                       try:
+                           min_val = df[y_axis].min()
+                           max_val = df[y_axis].max()
+                           variation = ((max_val - min_val) / min_val * 100) if min_val and min_val != 0 else 0
+                           st.info(f"💡 O indicador **{y_axis}** apresenta variação de {variation:.1f}% entre os extremos registrados.")
+                       except Exception:
+                           pass
 
              with c_col2:
-                  if not x_axis or not y_axis:
+                  if not avail_x or not avail_y or not x_axis or not y_axis:
                        st.info("📊 Selecione os eixos ao lado para gerar o cruzamento de dados.")
-                       st.stop()
+                  else:
+                      # --- Lógica Semântica de Seleção de Gráfico ---
+                      df_clean = df.copy()
+                      
+                      if x_axis == y_axis:
+                           st.warning("⚠️ Selecione indicadores diferentes para X e Y para uma análise comparativa.")
+                      
+                      # Tratamento especial para Datas no X
+                      if x_axis in config.get('date_cols', []):
+                           df_clean[x_axis] = pd.to_datetime(df_clean[x_axis]).dt.date
+                      
+                      if x_axis in config.get('cat_cols', []):
+                           df_clean[x_axis] = df_clean[x_axis].astype(str).str.strip()
+                      
+                      # Agregação com as_index=False (evita conflito de nomes no reset_index)
+                      df_plot = df_clean.groupby(x_axis, as_index=False)[y_axis].mean()
+                      
+                      try:
+                           df_plot[x_axis] = pd.to_numeric(df_plot[x_axis])
+                           df_plot = df_plot.sort_values(x_axis)
+                      except Exception:
+                           df_plot = df_plot.sort_values(x_axis)
 
-                  # --- Lógica Semântica de Seleção de Gráfico ---
-                  df_clean = df.copy()
-                  
-                  # Caso o usuário selecione o mesmo eixo, avisamos mas não quebramos
-                  if x_axis == y_axis:
-                       st.warning("⚠️ Selecione indicadores diferentes para X e Y para uma análise comparativa.")
-                  
-                  # Tratamento especial para Datas no X
-                  if x_axis in config.get('date_cols', []):
-                       df_clean[x_axis] = pd.to_datetime(df_clean[x_axis]).dt.date
-                  
-                  if x_axis in config['cat_cols']:
-                       df_clean[x_axis] = df_clean[x_axis].astype(str).str.strip()
-                  
-                  # Uso de as_index=False evita conflito de nomes no reset_index
-                  df_plot = df_clean.groupby(x_axis, as_index=False)[y_axis].mean()
-                  
-                  try:
-                       # Tenta converter X em numérico para ordenação correta (ex: anos)
-                       df_plot[x_axis] = pd.to_numeric(df_plot[x_axis])
-                       df_plot = df_plot.sort_values(x_axis)
-                  except:
-                       df_plot = df_plot.sort_values(x_axis)
+                      is_time = any(w in str(x_axis).lower() for w in ['ano', 'year', 'data', 'date', 'mês', 'month'])
+                      
+                      # Verifica se X é numérico (necessário para trendline OLS)
+                      x_is_numeric = pd.api.types.is_numeric_dtype(df_clean[x_axis])
+                      
+                      # Escolha do Tipo (Manual vs Auto)
+                      final_type = chart_pref
+                      if final_type == "Auto":
+                           if is_time: final_type = "Linhas" if df_plot[x_axis].nunique() > 10 else "Barras"
+                           elif x_axis in config.get('cat_cols', []): final_type = "Barras"
+                           else: final_type = "Dispersão"
 
-                  is_time = any(w in x_axis.lower() for w in ['ano', 'year', 'data', 'date', 'mês', 'month'])
-                  
-                  # Escolha do Tipo (Manual vs Auto)
-                  final_type = chart_pref
-                  if final_type == "Auto":
-                       if is_time: final_type = "Linhas" if df_plot[x_axis].nunique() > 10 else "Barras"
-                       elif x_axis in config['cat_cols']: final_type = "Barras"
-                       else: final_type = "Dispersão"
+                      # Renderização Baseada na Escolha
+                      fig_dyn = None
+                      try:
+                          if final_type == "Barras":
+                               is_long_text = df_plot[x_axis].astype(str).str.len().max() > 15
+                               fig_dyn = px.bar(df_plot if not is_long_text else df_plot.sort_values(y_axis), 
+                                              x=y_axis if is_long_text else x_axis, 
+                                              y=x_axis if is_long_text else y_axis, 
+                                              orientation='h' if is_long_text else 'v',
+                                              title=f"Analítico: {y_axis} por {x_axis}",
+                                              template="plotly_white", color=y_axis, color_continuous_scale="Cividis")
+                          
+                          elif final_type == "Linhas":
+                               fig_dyn = px.area(df_plot, x=x_axis, y=y_axis, title=f"Tendência: {y_axis}",
+                                               template="plotly_white", line_shape="spline")
+                               fig_dyn.update_traces(line_color="#5145cd", fillcolor="rgba(81, 69, 205, 0.2)")
+                          
+                          elif final_type == "Distribuição":
+                               fig_dyn = px.box(df_clean, x=x_axis, y=y_axis, title=f"Distribuição: {y_axis} por {x_axis}",
+                                              template="plotly_white", color=x_axis)
+                          
+                          else:  # Dispersão
+                               # Trendline OLS só funciona se X for numérico
+                               if x_is_numeric:
+                                   has_stats = True
+                                   try:
+                                        import statsmodels
+                                   except ImportError:
+                                        has_stats = False
+                                   
+                                   if has_stats:
+                                        fig_dyn = px.scatter(df_clean, x=x_axis, y=y_axis, trendline="ols", 
+                                                           title=f"Análise de Tendência: {x_axis} vs {y_axis}", 
+                                                           template="plotly_white")
+                                   else:
+                                        fig_dyn = px.scatter(df_clean, x=x_axis, y=y_axis, 
+                                                           title=f"Correlação: {x_axis} vs {y_axis}", 
+                                                           template="plotly_white")
+                                        st.warning("⚠️ Instale 'statsmodels' para ver a linha de tendência estatística.")
+                               else:
+                                   # X não é numérico: scatter sem trendline
+                                   fig_dyn = px.scatter(df_clean, x=x_axis, y=y_axis, 
+                                                      title=f"Correlação: {x_axis} vs {y_axis}", 
+                                                      template="plotly_white")
+                               
+                               fig_dyn.update_traces(marker=dict(size=12, color='#5145cd'))
 
-                  # Renderização Baseada na Escolha
-                  if final_type == "Barras":
-                       # Decide horizontal ou vertical baseado no tamanho do texto e quantidade
-                       is_long_text = df_plot[x_axis].astype(str).str.len().max() > 15
-                       fig_dyn = px.bar(df_plot if not is_long_text else df_plot.sort_values(y_axis), 
-                                      x=y_axis if is_long_text else x_axis, 
-                                      y=x_axis if is_long_text else y_axis, 
-                                      orientation='h' if is_long_text else 'v',
-                                      title=f"Analítico: {y_axis} por {x_axis}",
-                                      template="plotly_white", color=y_axis, color_continuous_scale="Cividis")
-                  
-                  elif final_type == "Linhas":
-                       fig_dyn = px.area(df_plot, x=x_axis, y=y_axis, title=f"Tendência: {y_axis}",
-                                       template="plotly_white", line_shape="spline")
-                       fig_dyn.update_traces(line_color="#5145cd", fillcolor="rgba(81, 69, 205, 0.2)")
-                  elif final_type == "Distribuição":
-                       fig_dyn = px.box(df_clean, x=x_axis, y=y_axis, title=f"Distribuição: {y_axis} por {x_axis}",
-                                      template="plotly_white", color=x_axis)
-                  else: # Dispersão
-                       # Tenta usar trendline apenas se statsmodels estiver instalado
-                       has_stats = True
-                       try:
-                            import statsmodels
-                       except ImportError:
-                            has_stats = False
-                       
-                       if has_stats:
-                            fig_dyn = px.scatter(df_clean, x=x_axis, y=y_axis, trendline="ols", 
-                                               title=f"Análise de Tendência: {x_axis} vs {y_axis}", 
-                                               template="plotly_white")
-                       else:
-                            fig_dyn = px.scatter(df_clean, x=x_axis, y=y_axis, 
-                                               title=f"Correlação: {x_axis} vs {y_axis} (Sem Trendline)", 
-                                               template="plotly_white")
-                            st.warning("⚠️ Instale 'statsmodels' para ver a linha de tendência estatística.")
-                       
-                       fig_dyn.update_traces(marker=dict(size=12, color='#5145cd'))
+                          if fig_dyn:
+                              fig_dyn.update_layout(height=450, margin=dict(l=20, r=20, t=50, b=20), showlegend=False)
+                              st.plotly_chart(fig_dyn, width="stretch")
+                              all_figs.append(fig_dyn)
+                      except Exception as chart_err:
+                          st.error(f"⚠️ Erro ao gerar gráfico dinâmico: {chart_err}")
 
-                  fig_dyn.update_layout(height=450, margin=dict(l=20, r=20, t=50, b=20), showlegend=False)
-                  st.plotly_chart(fig_dyn, use_container_width=True)
-                  all_figs.append(fig_dyn)
+             st.markdown('</div>', unsafe_allow_html=True)
 
              # --- BOTÃO DE EXPORTAÇÃO REAL (PDF FILE) ---
              st.markdown("---")
@@ -498,7 +496,6 @@ if uploaded_file is not None:
              if st.button("📄 Gerar Arquivo PDF para Download"):
                  with st.spinner("Compilando relatório em PDF de alta qualidade..."):
                      try:
-                         # Prepara dados para o PDF
                          stats_summary = {
                              "Registros": config.get('num_records', 0),
                              "Qualidade": f"{config.get('completeness_score', 0):.1f}%",
@@ -511,7 +508,7 @@ if uploaded_file is not None:
                              data=bytes(pdf_data),
                              file_name=f"Relatorio_{uploaded_file.name.split('.')[0]}.pdf",
                              mime="application/pdf",
-                             use_container_width=True
+                             width="stretch"
                          )
                      except Exception as e:
                          st.error(f"Erro na exportação para PDF: {e}")
@@ -524,14 +521,14 @@ if uploaded_file is not None:
     with tab_raw:
         if df is not None:
              st.subheader("📋 Estrutura da Tabela")
-             st.dataframe(df, use_container_width=True)
+             st.dataframe(df, width="stretch")
              
              # Ação de Engenheiro: Ingestão e Exportação
              st.markdown("---")
              ce1, ce2 = st.columns(2)
              
              with ce1:
-                  if st.button("🚀 Commit de Dados para Firestore", use_container_width=True):
+                  if st.button("🚀 Commit de Dados para Firestore", width="stretch"):
                        with st.spinner("Subindo em lote..."):
                             msg = db_interface.batch_upload_df(df, target_collection)
                             st.success(msg)
@@ -544,7 +541,7 @@ if uploaded_file is not None:
                        data=csv,
                        file_name=f"analise_{uploaded_file.name.split('.')[0]}.csv",
                        mime='text/csv',
-                       use_container_width=True
+                       width="stretch"
                   )
         else:
              st.markdown("### Extração de Metadados Brutos")
@@ -557,7 +554,7 @@ if uploaded_file is not None:
                        data=csv_report,
                        file_name=f"relatorio_{uploaded_file.name.split('.')[0]}.csv",
                        mime='text/csv',
-                       use_container_width=True
+                       width="stretch"
                   )
 
 # --- Rodapé ---
