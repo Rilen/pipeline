@@ -112,13 +112,14 @@ if uploaded_file is not None:
     file_type = uploaded_file.name.split('.')[-1].lower()
     df = None
     config = None
+    # 1. Carrega o arquivo integralmente para a memória para evitar erro "I/O operation on closed file"
+    file_bytes = io.BytesIO(uploaded_file.read())
     
     with st.status("🧠 Engine processando análise estratégica...", expanded=True) as status:
-        
         # --- CASO 1: IMAGENS (OCR + VISION) ---
         if file_type in ['png', 'jpg', 'jpeg']:
             st.write("🔍 Iniciando Visão Computacional / OCR...")
-            report, image = intel.analyze_image_ocr(uploaded_file)
+            report, image = intel.analyze_image_ocr(file_bytes)
             df = None
             
         # --- CASO 2: DOCUMENTOS E PLANILHAS ---
@@ -126,14 +127,12 @@ if uploaded_file is not None:
             st.write("📊 Analisando estrutura de dados...")
             
             if file_type == 'docx':
-                raw_text = intel.extract_text_from_docx(uploaded_file)
+                raw_text = intel.extract_text_from_docx(file_bytes)
                 report = intel.analyze_document_text(raw_text, "documento")
             else:
                 # CSV / XLSX / JSON / XML
                 try:
-                    # Resolve o erro "I/O operation on closed file" lendo para a memória
-                    file_bytes = io.BytesIO(uploaded_file.read())
-                    
+                    file_bytes.seek(0)
                     if file_type == 'xlsx': 
                         df = pd.read_excel(file_bytes)
                     elif file_type == 'json': 
@@ -141,6 +140,7 @@ if uploaded_file is not None:
                     elif file_type == 'xml':
                         try:
                             # Tenta ler considerando a estrutura Servidores/Servidor
+                            file_bytes.seek(0)
                             df = pd.read_xml(file_bytes, xpath=".//Servidor")
                         except Exception:
                             # Fallback genérico se a estrutura for diferente
@@ -473,7 +473,7 @@ if uploaded_file is not None:
 
 
         else:
-             st.info("A visualização gráfica automática está disponível apenas para planilhas e JSONs.")
+             st.info("A visualização gráfica automática está disponível apenas para planilhas (CSV, XLSX), JSONs e XMLs.")
 
     with tab_raw:
         if df is not None:
