@@ -155,10 +155,71 @@ if uploaded_file is not None:
                     elif file_type == 'json': 
                         df = pd.read_json(io.BytesIO(file_content))
                     elif file_type == 'xml':
-                        try:
-                            df = pd.read_xml(io.BytesIO(file_content), xpath=".//Servidor")
-                        except Exception:
-                            df = pd.read_xml(io.BytesIO(file_content))
+                        # XML Parsing robusto com suporte a ISO-8859-1 e encodings brasileiros
+                        import re
+                        from lxml import etree
+                        
+                        xml_parsed = False
+                        
+                        # Tentativa 1: Direto com lxml (respeita encoding do header)
+                        if not xml_parsed:
+                            try:
+                                df = pd.read_xml(io.BytesIO(file_content), xpath=".//Servidor")
+                                xml_parsed = True
+                            except Exception:
+                                pass
+                        
+                        # Tentativa 2: Decodifica ISO-8859-1 para UTF-8 e remove declaração de encoding
+                        if not xml_parsed:
+                            try:
+                                # Decodifica como latin-1 (ISO-8859-1)
+                                xml_str = file_content.decode('latin-1', errors='replace')
+                                # Remove a declaração de encoding para evitar conflito
+                                xml_str = re.sub(r"encoding=['\"][^'\"]*['\"]", '', xml_str)
+                                xml_bytes_utf8 = xml_str.encode('utf-8')
+                                
+                                try:
+                                    df = pd.read_xml(io.BytesIO(xml_bytes_utf8), xpath=".//Servidor")
+                                except Exception:
+                                    df = pd.read_xml(io.BytesIO(xml_bytes_utf8))
+                                xml_parsed = True
+                            except Exception:
+                                pass
+                        
+                        # Tentativa 3: lxml com recover=True (tolerante a erros de encoding)
+                        if not xml_parsed:
+                            try:
+                                parser = etree.XMLParser(recover=True, encoding='latin-1')
+                                tree = etree.fromstring(file_content, parser=parser)
+                                
+                                # Tenta extrair elementos Servidor
+                                servidores = tree.findall('.//Servidor')
+                                if servidores:
+                                    rows = []
+                                    for s in servidores:
+                                        row = {child.tag: (child.text or '').strip() for child in s}
+                                        rows.append(row)
+                                    df = pd.DataFrame(rows)
+                                else:
+                                    # Genérico: pega todos os filhos do root
+                                    rows = []
+                                    for elem in tree:
+                                        row = {child.tag: (child.text or '').strip() for child in elem}
+                                        rows.append(row)
+                                    df = pd.DataFrame(rows)
+                                xml_parsed = True
+                            except Exception:
+                                pass
+                        
+                        # Tentativa 4: Último recurso - lxml genérico sem xpath
+                        if not xml_parsed:
+                            try:
+                                xml_str = file_content.decode('latin-1', errors='ignore')
+                                xml_str = re.sub(r"encoding=['\"][^'\"]*['\"]", '', xml_str)
+                                df = pd.read_xml(io.StringIO(xml_str))
+                                xml_parsed = True
+                            except Exception as xml_err:
+                                raise Exception(f"Não foi possível processar o XML: {xml_err}")
                     else:
                         # CSV Parsing Robusto
                         try:
