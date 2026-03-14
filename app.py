@@ -95,21 +95,17 @@ st.markdown("""
 col_u1, col_u2 = st.columns([2, 1])
 
 with col_u1:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     st.subheader("📁 Central de Arquivos Multi-IA")
     uploaded_file = st.file_uploader(
         "Arraste planilhas (.xlsx, .csv), documentos (.docx), imagens (.jpg, .png), dados (.json) ou arquivos (.xml)", 
         type=["xlsx", "csv", "docx", "json", "xml", "png", "jpg", "jpeg"], 
         label_visibility="collapsed"
     )
-    st.markdown('</div>', unsafe_allow_html=True)
 
 with col_u2:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     st.subheader("⚙️ Configurações Rápidas")
     target_collection = st.text_input("Coleção Firestore", value="dados_analise_ia")
     enable_cleaning = st.toggle("Limpeza Automática (Normalização)", value=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Fluxo de Processamento Inteligente ---
 if uploaded_file is not None:
@@ -184,7 +180,6 @@ if uploaded_file is not None:
     tab_report, tab_viz, tab_raw = st.tabs(["🤖 Insights de IA", "📊 Dash de Alta Performance", "📋 Visão de Engenheiro"])
 
     with tab_report:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         if file_type in ['png', 'jpg', 'jpeg'] and image is not None:
              # Convertemos para RGB para garantir que o Streamlit consiga processar sem depender de metadados de formato
              if image.mode != 'RGB':
@@ -193,7 +188,6 @@ if uploaded_file is not None:
                  display_img = image
              st.image(display_img, caption="Visualização do Original", use_container_width=True)
         st.markdown(report)
-        st.markdown('</div>', unsafe_allow_html=True)
 
     with tab_viz:
         if df is not None:
@@ -222,10 +216,8 @@ if uploaded_file is not None:
              st.markdown('<div class="print-hide" style="text-align: right;">', unsafe_allow_html=True)
              if st.button("🖨️ Gerar PDF / Imprimir Relatório"):
                   st.info("💡 Dica: Use Ctrl+P no navegador e selecione 'Salvar como PDF' para exportar este relatório.")
-             st.markdown('</div>', unsafe_allow_html=True)
 
              # --- CONTAINER DO RELATÓRIO EXECUTIVO ---
-             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
              st.markdown(f"## 📑 Dashboard de Performance Digital: {uploaded_file.name}")
              st.caption(f"Análise processada em {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M')}")
              
@@ -292,7 +284,6 @@ if uploaded_file is not None:
                  <div style="color: #94a3b8; font-size: 0.8rem;">Indicadores Mapeados</div>
              </div>''', unsafe_allow_html=True)
              
-             st.markdown('</div>', unsafe_allow_html=True)
 
              # 2. Seção de Gráficos Principais (3 Colunas na TV)
              # --- Espaço para Gráfico 1 ---
@@ -325,7 +316,6 @@ if uploaded_file is not None:
                        st.plotly_chart(fig_dist, use_container_width=True)
                   else:
                        st.info("ℹ️ Carregue dados numéricos para ver o perfil de distribuição.")
-                  st.markdown('</div>', unsafe_allow_html=True)
 
              # --- Espaço para Gráfico 2 ---
              with st.container():
@@ -345,7 +335,6 @@ if uploaded_file is not None:
                        st.plotly_chart(fig_scat, use_container_width=True)
                   else:
                        st.info("🎯 Para correlação, são necessários ao menos dois indicadores numéricos.")
-                  st.markdown('</div>', unsafe_allow_html=True)
 
              #--- Espaço para Gráfico 3 ---
              with st.container():
@@ -358,9 +347,6 @@ if uploaded_file is not None:
                                       color=target, template="plotly_white", color_continuous_scale="Viridis")
                        fig_bar.update_layout(height=350, margin=dict(l=0,r=0,b=0,t=40))
                        st.plotly_chart(fig_bar, use_container_width=True)
-                  st.markdown('</div>', unsafe_allow_html=True)
-
-             st.markdown('</div>', unsafe_allow_html=True)
 
              # Linha Especial: Análise de Correlação ou Cruzamento
              st.markdown("### 🔍 Cruzamento Dinâmico de Indicadores")
@@ -398,7 +384,6 @@ if uploaded_file is not None:
                            default="Auto"
                       )
                       if not chart_pref: chart_pref = "Auto"
-                  st.markdown('</div>', unsafe_allow_html=True)
                   
                   # Insights Automáticos (Simulado com proteção ZeroDivision)
                   if y_axis and y_axis in df.columns:
@@ -486,7 +471,6 @@ if uploaded_file is not None:
                   fig_dyn.update_layout(height=450, margin=dict(l=20, r=20, t=50, b=20), showlegend=False)
                   st.plotly_chart(fig_dyn, use_container_width=True)
 
-             st.markdown('</div>', unsafe_allow_html=True)
 
         else:
              st.info("A visualização gráfica automática está disponível apenas para planilhas e JSONs.")
@@ -517,7 +501,6 @@ if uploaded_file is not None:
                        use_container_width=True
                   )
         else:
-             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
              st.markdown("### Extração de Metadados Brutos")
              st.code(report[:5000] if report else "Vazio")
              
@@ -530,7 +513,6 @@ if uploaded_file is not None:
                        mime='text/csv',
                        use_container_width=True
                   )
-             st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Rodapé ---
 st.markdown("---")
