@@ -83,7 +83,7 @@ class DataScientist:
             col_lower = col.lower()
             if any(hint in col_lower for hint in date_hints):
                 try:
-                    df[col] = pd.to_datetime(df[col], errors='coerce', dayfirst=True)
+                    df[col] = pd.to_datetime(df[col], errors='coerce', dayfirst=True, format='mixed')
                 except:
                     continue
 
